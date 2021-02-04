@@ -154,7 +154,8 @@ class PostRoute(flask.views.MethodView):
             'modified': target_post.created_at == target_post.modified_at,
             'modified_at': target_post.modified_at,
 
-            # We need to show icon when post is deleted or private
+            # We need to show icon when post is announcement, deleted or private
+            'announcement': target_post.announcement,
             'deleted': target_post.deleted,
             'private': target_post.private,
 

@@ -21,6 +21,10 @@ class CommonResponseCase(api.ResponseCaseCollector):
         })
 
     # Backend error related
+    server_error = api.Response(
+        code=500, success=False,
+        private_sub_code='backend.uncaught_error',
+        public_sub_code='backend.error')
     db_error = api.Response(
         # This must be shown as backend error, not a DB error
         # But also, this must be logged as a DB error
@@ -44,5 +48,3 @@ class CommonResponseCase(api.ResponseCaseCollector):
     http_not_found = api.Response(
         code=404, success=False,
         public_sub_code='http.not_found')
-
-

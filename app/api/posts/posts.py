@@ -3,6 +3,7 @@ import flask.views
 import jwt
 import typing
 
+import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
 import app.database.jwt as jwt_module
@@ -172,29 +173,71 @@ class PostRoute(flask.views.MethodView):
             'comments': response_comments,
         })
 
-    # Create post
+    # Create new post
     def post(self, post_id: str):
         if not post_id or post_id.lower() != 'new':
             return CommonResponseCase.http_mtd_forbidden.create_response()
 
+        # Get user access token and check it
+        user_is_superuser: bool = False
+        access_token: jwt_module.AccessToken = get_account_data()
+
+        # Check access token on request
+        if not access_token:
+            if access_token is False:
+                return AccountResponseCase.access_token_expired.create_response()
+            return AccountResponseCase.access_token_invalid.create_response()
+
+        # Check user permission
         try:
-            post_req = flask.request.get_json(force=True)
-            post_req = {k: v for k, v in post_req.items() if v}
+            # Get user data from table using access token
+            if access_token.user < 0:
+                return AccountResponseCase.access_token_invalid.create_response()
 
-            required_fields = ['title', 'body']
-            if (not all([z in post_req.keys() for z in required_fields])) or (not all(list(post_req.values()))):
-                return CommonResponseCase.body_required_omitted.create_response(data={'lacks': []})
+            target_user: user_module.User = user_module.User.query.filter(
+                                                user_module.User.uuid == access_token.user
+                                            ).first()
+            if not target_user:
+                return AccountResponseCase.access_token_invalid.create_response()
+
+            # Is user admin?
+            if target_user.role in ('admin', ):
+                # Admin can do everything, including writing announcement post
+                user_is_superuser = True
+            # Is user on normal state so that user is not deactivated and locked?
+            if target_user.deactivated_at or target_user.locked_at:
+                return AccountResponseCase.refresh_token_invalid.create_response()
+
         except Exception:
+            return PostResponseCase.post_forbidden.create_response()
+
+        # Get user-written post data from request
+        post_req = utils.request_body(
+            required_fields=['title', 'body'],
+            optional_fields=['announcement', 'private', 'commentable'])
+        if not post_req:
             return CommonResponseCase.body_invalid.create_response()
+        if type(post_req) == list:
+            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
 
-        # Get user account from access token
-        # Check if user can create a post
-        new_post = board_module.Post()
-        new_post.title = ''
-        new_post.body = ''
-        new_post.user = None
-        db_module.db.session.add(new_post)
-        db_module.db.session.commit()
+        try:
+            new_post = board_module.Post()
+            new_post.user = target_user
+            new_post.title = post_req['title']
+            new_post.body = post_req['body']
 
-        return PostResponseCase.post_created.create_response(data={'id': 0})
+            new_post.private = bool(post_req.get('private', False))
+            new_post.commentable = bool(post_req.get('commentable', True))
+
+            if user_is_superuser:
+                new_post.announcement = bool(post_req.get('announcement', False))
+            else:
+                new_post.announcement = False
+
+            db_module.db.session.add(new_post)
+            db_module.db.session.commit()
+
+            return PostResponseCase.post_created.create_response(data={'id': new_post.uuid})
+        except Exception:
+            return CommonResponseCase.server_error.create_response()
 

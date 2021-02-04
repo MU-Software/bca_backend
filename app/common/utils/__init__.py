@@ -1,6 +1,5 @@
 #!/usr/bin/env python3.8
 # -*- coding: UTF-8 -*-
-import dataclasses
 import datetime
 import email
 import flask
@@ -227,6 +226,24 @@ def cookie_datetime(dt_time: datetime.datetime) -> str:
 
     dt_time = dt_time.replace(tzinfo=UTC)
     return dt_time.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+
+# ---------- Request body parser Function ----------
+def request_body(required_fields: list[str], optional_fields: list[str]) -> typing.Union[dict, list, None]:
+    try:
+        req_body = flask.request.get_json(force=True)
+        req_body = {k: v for k, v in req_body.items() if k and v}  # basic filter for empty keys and values
+
+        # Check if all required fields are in
+        if (not all([z in req_body.keys() for z in required_fields])):
+            return [z for z in required_fields if z not in req_body]
+
+        # Remove every field not in required and optional fields
+        req_body = {k: req_body[k] for k in required_fields + optional_fields}
+
+        return req_body
+    except Exception:
+        return None
 
 
 # ---------- Helper Function ----------

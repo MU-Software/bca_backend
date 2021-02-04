@@ -40,6 +40,7 @@ class Post(db_module.DefaultModelMixin, db.Model):
 
     title = db.Column(db.String, unique=False, nullable=False)
     body = db.Column(db.String, unique=False, nullable=False)
+    announcement = db.Column(db.Boolean, default=False, nullable=False)
 
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     private = db.Column(db.Boolean, default=False, nullable=False)

@@ -1,6 +1,7 @@
 import flask
 import flask.views
-import app.api as api
+import jwt
+import typing
 
 import app.database as db_module
 import app.database.user as user_module
@@ -8,7 +9,81 @@ import app.database.jwt as jwt_module
 import app.database.board as board_module
 
 from app.api.response_case import CommonResponseCase
+from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
+
+
+def get_account_data() -> typing.Union[None, bool, jwt_module.AccessToken]:
+    '''
+    return case:
+        if None: Token not available
+        if False: Token must be re-issued
+        else: Token Object
+    '''
+    try:
+        access_token_cookie = flask.request.cookies.get('access_token', '')
+        if not access_token_cookie:
+            return None
+
+        try:
+            access_token = jwt_module.AccessToken.from_token(
+                access_token_cookie,
+                flask.current_app.config.get('SECRET_KEY'))
+        except jwt.exceptions.ExpiredSignatureError:
+            return False
+        except jwt.exceptions.InvalidTokenError as err:
+            if err.message == 'This token was revoked':
+                return False
+            return None
+        except Exception:
+            return None
+        if not access_token:
+            return None
+
+        return access_token
+    except Exception:
+        return None
+
+
+def has_post_permission(
+        access_token: jwt_module.AccessToken,
+        post_obj: board_module.Post,
+        action: str) -> bool:
+    try:
+        # Only those actions are allowed, we must check 'post' when user uploads post.
+        if action not in ('get', 'put', 'delete'):
+            return False
+
+        # Anyone must not access to deleted post
+        if not post_obj or post_obj.deleted:
+            return False
+
+        # Get user data from table using access token
+        if not access_token or access_token.user < 0:
+            return False
+
+        target_user: user_module.User = user_module.User.query.filter(
+                                            user_module.User.uuid == access_token.user
+                                        ).first()
+        if not target_user:
+            return False
+
+        # Is user admin?
+        if target_user.role in ('admin', ):
+            # Admin can do everything, without modifying.
+            return False if action == 'put' else True
+
+        # Is user author of post?
+        if post_obj.user_id == target_user.uuid:
+            # Even though the user is author, author cannot get permission when some flags are set
+            if action == 'get':
+                return post_obj.readable
+            elif action == 'put' or action == 'delete':
+                return post_obj.modifiable
+    except Exception:
+        pass
+
+    return False
 
 
 class PostRoute(flask.views.MethodView):
@@ -26,42 +101,51 @@ class PostRoute(flask.views.MethodView):
                 board_module.Post.uuid == int(post_id)).first()
         except Exception:
             return CommonResponseCase.db_error.create_response()
-
-        # TODO: Check user read permission
-        user_has_power = False
-
         if not target_post or target_post.deleted:
             return PostResponseCase.post_not_found.create_response()
-        if not target_post.readable:
-            return PostResponseCase.post_forbidden.create_response()
-        if target_post.private:
-            # TODO: can read post if target_post.user == access_jwt_user or access_jwt_user.role == 'manager'
-            return PostResponseCase.post_forbidden.create_response()
+
+        user_has_power: bool = False  # This var will be used on comment processing
+        access_token: jwt_module.AccessToken = None
+        # if target_post.private == False and target_post.readable == True, then response post data
+        if (target_post.private) or (not target_post.readable):
+            # Get user access token and check it
+            access_token = get_account_data()
+
+            if not access_token:
+                if access_token is False:
+                    return AccountResponseCase.access_token_expired.create_response()
+                return AccountResponseCase.access_token_invalid.create_response()
+            else:
+                # Check user permission
+                user_has_power = has_post_permission(access_token, target_post, 'get')
+
+                if not user_has_power:
+                    return PostResponseCase.post_forbidden.create_response()
 
         response_comments = list()
         comment: board_module.Comment = None
         for comment in target_post.comments:
-            is_comment_readable: bool = not (comment.deleted) and \
-                                        (
-                                            (not user_has_power) and
-                                            (target_post.user_id != comment.user_id)
-                                        )
-            response_comments.append({
-                'id': comment.id,
+            if not comment.deleted:
+                is_comment_readable: bool = (not comment.private) or user_has_power
+                if not is_comment_readable and access_token:
+                    if comment.user_id == access_token.user:
+                        is_comment_readable = True
 
-                'created_at': comment.created_at,
-                'modified': comment.created_at == comment.modified_at,
-                'modified_at': comment.modified_at,
+                response_comments.append({
+                    'id': comment.id,
 
-                'deleted': comment.deleted,
-                'private': comment.private,
+                    'created_at': comment.created_at,
+                    'modified': comment.created_at == comment.modified_at,
+                    'modified_at': comment.modified_at,
 
-                'user': comment.user.nickname,
-                'user_id': comment.user_id,
-                'is_author': target_post.user_id == comment.user_id,
+                    'private': comment.private,
 
-                'body': '' if not is_comment_readable else comment.body
-            })
+                    'user': comment.user.nickname,
+                    'user_id': comment.user_id,
+                    'is_post_author': target_post.user_id == comment.user_id,
+
+                    'body': '' if not is_comment_readable else comment.body
+                })
 
         PostResponseCase.post_found.create_response(data={
             'id': post_id,

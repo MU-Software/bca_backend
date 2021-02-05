@@ -42,6 +42,14 @@ class CommonResponseCase(api.ResponseCaseCollector):
         public_sub_code='request.body.omitted',
         data={'lacks': []})
 
+    header_invalid = api.Response(
+        code=400, success=False,
+        public_sub_code='request.header.invalid')
+    header_required_omitted = api.Response(
+        code=400, success=False,
+        public_sub_code='request.header.omitted',
+        data={'lacks': []})
+
     http_mtd_forbidden = api.Response(
         code=403, success=False,
         public_sub_code='http.mtd_forbidden')

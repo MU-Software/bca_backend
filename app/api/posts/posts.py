@@ -171,7 +171,10 @@ class PostRoute(flask.views.MethodView):
 
             # Comments must be filtered
             'comments': response_comments,
-        })
+        }, header=(
+            ('ETag', target_post.commit_id),
+            ('Last-Modified', target_post.modified_at),
+        ))
 
     # Create new post
     def post(self, post_id: str):
@@ -237,7 +240,13 @@ class PostRoute(flask.views.MethodView):
             db_module.db.session.add(new_post)
             db_module.db.session.commit()
 
-            return PostResponseCase.post_created.create_response(data={'id': new_post.uuid})
+            return PostResponseCase.post_created.create_response(
+                data={
+                    'id': new_post.uuid
+                }, header=(
+                    ('ETag', new_post.commit_id),
+                    ('Last-Modified', new_post.modified_at),
+                ))
         except Exception:
             return CommonResponseCase.server_error.create_response()
 

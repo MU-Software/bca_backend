@@ -42,7 +42,16 @@ class Post(db_module.DefaultModelMixin, db.Model):
     body = db.Column(db.String, unique=False, nullable=False)
     announcement = db.Column(db.Boolean, default=False, nullable=False)
 
+    # if post locked, then anyone cannot read/modify/delete/comment this, and this must not be shown on list.
+    # This looks quite same as deleted, but...
+    #   - cannot be garbage collected
+    #   - cannot recover by admin
+    #   - only can be accessed by DB manager
+    locked = db.Column(db.Boolean, default=False, nullable=False)
+    locked_at = db.Column(db.DateTime, nullable=True)
+
     deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     commentable = db.Column(db.Boolean, default=True, nullable=False)

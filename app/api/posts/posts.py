@@ -1,3 +1,4 @@
+import datetime
 import flask
 import flask.views
 import jwt
@@ -56,7 +57,7 @@ def has_post_permission(
             return False
 
         # Anyone must not access to deleted post
-        if not post_obj or post_obj.deleted:
+        if not post_obj or post_obj.locked or post_obj.deleted:
             return False
 
         # Get user data from table using access token
@@ -66,7 +67,7 @@ def has_post_permission(
         target_user: user_module.User = user_module.User.query.filter(
                                             user_module.User.uuid == access_token.user
                                         ).first()
-        if not target_user:
+        if not target_user or target_user.deactivated_at or target_user.locked_at:
             return False
 
         # Is user admin?
@@ -93,16 +94,18 @@ class PostRoute(flask.views.MethodView):
         if not post_id:
             return CommonResponseCase.http_mtd_forbidden.create_response(
                 data={'lacks': ['post_id']})
-        if post_id.lower() == 'new' or not post_id.isdigit():
+        elif not post_id.isdigit():
             return CommonResponseCase.http_mtd_forbidden.create_response()
 
         target_post: board_module.Post = None
         try:
-            target_post = board_module.Post.query.filter(
-                board_module.Post.uuid == int(post_id)).first()
+            target_post = board_module.Post.query\
+                .filter(not board_module.Post.locked)\
+                .filter(not board_module.Post.deleted)\
+                .filter(board_module.Post.uuid == int(post_id)).first()
         except Exception:
             return CommonResponseCase.db_error.create_response()
-        if not target_post or target_post.deleted:
+        if not target_post:
             return PostResponseCase.post_not_found.create_response()
 
         user_has_power: bool = False  # This var will be used on comment processing

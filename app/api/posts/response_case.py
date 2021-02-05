@@ -12,14 +12,12 @@ class PostResponseCase(api.ResponseCaseCollector):
         code=200, success=True,
         public_sub_code='post.list')
 
-    # Unauthorized means there's no account information on header,
-    # while Forbidden means the user don't have permission on request action
-    post_unauthorized = api.Response(
-        code=401, success=False,
-        public_sub_code='post.unauthorized')
     post_forbidden = api.Response(
         code=401, success=False,
         public_sub_code='post.forbidden')
+    post_prediction_failed = api.Response(
+        code=412, success=False,
+        public_sub_code='post.prediction_failed')
 
     post_created = api.Response(
         code=201, success=True,
@@ -30,6 +28,6 @@ class PostResponseCase(api.ResponseCaseCollector):
         public_sub_code='post.modified',
         data={'id': 0})
     post_deleted = api.Response(
-        code=201, success=True,
+        code=204, success=True,
         public_sub_code='post.deleted',
         data={'id': 0})

@@ -241,6 +241,67 @@ class PostRoute(flask.views.MethodView):
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
+    # Modify post
+    def patch(self, post_id: str):
+        if not post_id:
+            return CommonResponseCase.http_mtd_forbidden.create_response(
+                data={'lacks': ['post_id']})
+        if not post_id.isdigit():
+            return CommonResponseCase.http_mtd_forbidden.create_response()
+
+        post_req = utils.request_body(
+            required_fields=[],
+            optional_fields=[
+                'title', 'body',
+                'announcement', 'private', 'commentable'])
+        if not post_req:
+            return CommonResponseCase.body_invalid.create_response()
+        if type(post_req) == list:
+            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
+
+        target_post: board_module.Post = None
+        try:
+            target_post = board_module.Post.query\
+                .filter(not board_module.Post.locked)\
+                .filter(not board_module.Post.deleted)\
+                .filter(board_module.Post.uuid == int(post_id)).first()
+        except Exception:
+            return CommonResponseCase.db_error.create_response()
+        if not target_post:
+            return PostResponseCase.post_not_found.create_response()
+
+        # Check requested user is author
+        access_token: jwt_module.AccessToken = get_account_data()
+
+        if not access_token:
+            if access_token is False:
+                return AccountResponseCase.access_token_expired.create_response()
+            return AccountResponseCase.access_token_invalid.create_response()
+
+        # Check Etag
+        if req_etag := flask.request.headers.get('If-Match', False):
+            if req_etag != target_post.commit_id:
+                return PostResponseCase.post_prediction_failed.create_response()
+        elif req_modified_at := flask.request.headers.get('If-Unmodified-Since', False):
+            try:
+                req_modified_at = datetime.datetime.strptime(req_modified_at, '%a, %d %b %Y %H:%M:%S GMT')
+                if target_post.modified_at > req_modified_at:
+                    return PostResponseCase.post_prediction_failed.create_response()
+            except Exception:
+                return CommonResponseCase.header_invalid.create_response()
+        else:
+            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': ['ETag', ]})
+
+        # Is req_user author? (author cannot modify post when post is not modifiable)
+        if (target_post.user_id != access_token.user) or (not target_post.modifiable):
+            return PostResponseCase.post_forbidden.create_response()
+
+        # Modify post using request body
+        for req_key, req_value in post_req.items():
+            setattr(target_post, req_key, req_value)
+        db_module.db.session.commit()
+
+        return PostResponseCase.post_modified.create_response()
 
     # Delete post
     def delete(self, post_id: str):

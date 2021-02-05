@@ -1,6 +1,7 @@
 import flask
 import flask_sqlalchemy as fsql
 import re
+import secrets
 import sqlalchemy.dialects.mysql as sqldlc_mysql
 import sqlalchemy.dialects.postgresql as sqldlc_psql
 import sqlalchemy.dialects.sqlite as sqldlc_sqlite
@@ -104,6 +105,7 @@ def IntegrityCaser(err):
 class DefaultModelMixin:
     created_at = db.Column(db.DateTime, default=db.func.now())
     modified_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    commit_id = db.Column(db.String, default=secrets.token_hex, onupdate=secrets.token_hex)
 
     @classmethod
     def get_by_uuid(cls, uuid: int) -> typing.Optional['DefaultModelMixin']:

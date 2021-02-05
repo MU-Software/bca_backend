@@ -59,7 +59,7 @@ class Response:
     header: tuple[tuple[str, str]] = ()
     data: dict = dataclasses.field(default_factory=dict)
 
-    def create_response(self, header: tuple[str] = (), data: dict = {}) -> ResponseType:
+    def create_response(self, header: tuple[tuple[str]] = (), data: dict = {}) -> ResponseType:
         # TODO: Parse YAML file and get response message using public_sub_code
         resp_message = ''
 

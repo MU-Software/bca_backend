@@ -241,3 +241,46 @@ class PostRoute(flask.views.MethodView):
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
+
+    # Delete post
+    def delete(self, post_id: str):
+        # Check requested user has permission to delete,
+        # is req_user manager or author? (author cannot delete post when post is not deletable)
+        if not post_id:
+            return CommonResponseCase.http_mtd_forbidden.create_response(
+                data={'lacks': ['post_id']})
+        if not post_id.isdigit():
+            return CommonResponseCase.http_mtd_forbidden.create_response()
+
+        target_post: board_module.Post = None
+        try:
+            target_post = board_module.Post.query\
+                .filter(not board_module.Post.locked)\
+                .filter(not board_module.Post.deleted)\
+                .filter(board_module.Post.uuid == int(post_id)).first()
+        except Exception:
+            return CommonResponseCase.db_error.create_response()
+        if not target_post:
+            return PostResponseCase.post_not_found.create_response()
+
+        # Get user access token and check it
+        access_token: jwt_module.AccessToken = get_account_data()
+
+        if not access_token:
+            if access_token is False:
+                return AccountResponseCase.access_token_expired.create_response()
+            return AccountResponseCase.access_token_invalid.create_response()
+
+        # Check user permission
+        if not has_post_permission(access_token, target_post, 'delete'):
+            return PostResponseCase.post_forbidden.create_response()
+
+        try:
+            target_post.deleted = True
+            target_post.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
+            db_module.db.session.commit()
+            return PostResponseCase.post_deleted.create_response(
+                data={'id': target_post.uuid}
+            )
+        except Exception:
+            return CommonResponseCase.server_error.create_response()

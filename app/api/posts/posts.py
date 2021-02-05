@@ -345,6 +345,20 @@ class PostRoute(flask.views.MethodView):
         if not has_post_permission(access_token, target_post, 'delete'):
             return PostResponseCase.post_forbidden.create_response()
 
+        # Check Etag
+        if req_etag := flask.request.headers.get('If-Match', False):
+            if req_etag != target_post.commit_id:
+                return PostResponseCase.post_prediction_failed.create_response()
+        elif req_modified_at := flask.request.headers.get('If-Unmodified-Since', False):
+            try:
+                req_modified_at = datetime.datetime.strptime(req_modified_at, '%a, %d %b %Y %H:%M:%S GMT')
+                if target_post.modified_at > req_modified_at:
+                    return PostResponseCase.post_prediction_failed.create_response()
+            except Exception:
+                return CommonResponseCase.header_invalid.create_response()
+        else:
+            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': ['ETag', ]})
+
         try:
             target_post.deleted = True
             target_post.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)

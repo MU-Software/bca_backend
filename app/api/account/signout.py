@@ -5,8 +5,8 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 
-import app.api.response_case as common_resp
-import app.api.account.response_case as account_resp
+from app.api.response_case import CommonResponseCase
+from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
 
@@ -18,11 +18,11 @@ class SignOutRoute(flask.views.MethodView):
             signout_req = flask.request.get_json(force=True)
             signout_req = {k: v for k, v in signout_req.items() if v}
         except Exception:
-            return common_resp.CommonResponseCase.body_invalid.create_response()
+            return CommonResponseCase.body_invalid.create_response()
 
         if 'signout' not in signout_req:
             # TODO: Use CommonResponseCase.body_required_omitted
-            return common_resp.CommonResponseCase.body_required_omitted.create_response(
+            return CommonResponseCase.body_required_omitted.create_response(
                 data={'lacks': ['signout']}
             )
 
@@ -34,7 +34,7 @@ class SignOutRoute(flask.views.MethodView):
                                     refresh_token_cookie,
                                     flask.current_app.config.get('SECRET_KEY'))
             except Exception:
-                return account_resp.AccountResponseCase.user_signed_out.create_response()
+                return AccountResponseCase.user_signed_out.create_response()
 
             revoke_target_jti = refresh_token.jti
             print(f'Refresh token {revoke_target_jti} removed!')

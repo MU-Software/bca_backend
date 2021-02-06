@@ -1,10 +1,14 @@
 import flask
 import flask.views
+
 import app.api as api
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
 import app.common.decorator as deco_module
+
+from app.api.response_case import CommonResponseCase
+from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
 
@@ -32,24 +36,22 @@ class SignInRoute(flask.views.MethodView):
         account_result, reason = user.User.try_login(login_req['id'], login_req['pw'])
 
         if account_result is False:
-            code = 500
-            message = 'Server error'
             if reason == 'ACCOUNT_NOT_FOUND':
-                code, message = 401, 'Account not found'
+                return AccountResponseCase.user_not_found.create_response()
             elif reason == 'WRONG_PASSWORD':
-                code, message = 401, 'Password mismatch'
+                return AccountResponseCase.user_wrong_password.create_response()
             elif 'TOO_MUCH_LOGIN_FAIL' in reason:
-                code, message = 401, 'Account locked = Too many login attempts'
+                return AccountResponseCase.user_locked.create_response(
+                            data={'reason': 'Too many login attempts'})
             elif reason.startswith('ACCOUNT_LOCKED'):
-                code, message = 401, reason.replace('ACCOUNT_LOCKED::', '')
+                return AccountResponseCase.user_locked.create_response(
+                            data={'reason': reason.replace('ACCOUNT_LOCKED::', '')})
             elif reason.startswith('ACCOUNT_DEACTIVATED'):
-                code, message = 401, reason.replace('ACCOUNT_DEACTIVATED::', '')
+                return AccountResponseCase.user_deactivated.create_response(
+                            data={'reason': reason.replace('ACCOUNT_DEACTIVATED::', '')})
             elif reason == 'DB_ERROR':
-                code, message = 500, 'Server error'
-
-            return api.create_response(
-                code=code, success=False,
-                message=message)
+                return CommonResponseCase.db_error.create_response()
+            return CommonResponseCase.server_error.create_response()
 
         refresh_token_cookie,\
             access_token_cookie,\
@@ -58,14 +60,11 @@ class SignInRoute(flask.views.MethodView):
                                             account_result,
                                             flask.current_app.config.get('SECRET_KEY'))
 
-        return api.create_response(
-            code=200, success=True,
-            message='',
-            header=(
-                ('Set-Cookie', refresh_token_cookie),
-                ('Set-Cookie', access_token_cookie),
-            ),
-            data={
-                'RefreshToken': refresh_token_data,
-                'AccessToken': access_token_data,
-            })
+        return AccountResponseCase.user_signed_in.create_response(
+                    data={
+                        'RefreshToken': refresh_token_data,
+                        'AccessToken': access_token_data,
+                    }, header=(
+                        ('Set-Cookie', refresh_token_cookie),
+                        ('Set-Cookie', access_token_cookie),
+                    ))

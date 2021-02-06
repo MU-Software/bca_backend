@@ -14,8 +14,7 @@ import app.database.user as user
 import app.database.jwt as jwt_module
 import app.common.decorator as deco_module
 
-import app.api.response_case as common_resp
-import app.api.account.response_case as account_resp
+from app.api.response_case import CommonResponseCase
 
 db = db_module.db
 
@@ -30,14 +29,14 @@ class SignUpRoute(flask.views.MethodView):
             new_user_req = flask.request.get_json(force=True)
             new_user_req = {k: v for k, v in new_user_req.items() if v}
         except Exception:
-            return common_resp.CommonResponseCase.body_invalid.create_response()
+            return CommonResponseCase.body_invalid.create_response()
 
         # At least we need those values.
         must_require = ['id', 'pw', 'nick', 'email']
 
         missing_info = [z for z in must_require if z not in new_user_req]
         if missing_info:
-            return common_resp.CommonResponseCase.body_required_omitted.create_response(
+            return CommonResponseCase.body_required_omitted.create_response(
                 data={'lacks': missing_info}
             )
 

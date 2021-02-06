@@ -77,6 +77,8 @@ class TokenBase:
         current_api_ver: str = flask.current_app.config.get('RESTAPI_VERSION')
         if token_data.get('api_ver', '') != current_api_ver:
             raise jwt.exceptions.InvalidTokenError('Token api version mismatch')
+        if token_data.get('sub', '') != cls.sub:
+            raise jwt.exceptions.InvalidTokenError('Token sub mismatch')
 
         token_exp_time = token_data.get('exp', 0)
         if type(token_exp_time) == int:
@@ -198,6 +200,8 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
         current_api_ver: str = flask.current_app.config.get('RESTAPI_VERSION')
         if token_data.get('api_ver', '') != current_api_ver:
             raise jwt.exceptions.InvalidTokenError('Token api version mismatch')
+        if token_data.get('sub', '') != cls.sub:
+            raise jwt.exceptions.InvalidTokenError('Token sub mismatch')
 
         # Get token using JTI, but only
         target_token = RefreshToken.query.filter(RefreshToken.jti == token_data.get('jti', -1))\

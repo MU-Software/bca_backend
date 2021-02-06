@@ -29,10 +29,19 @@ class AccountResponseCase(api.ResponseCaseCollector):
     user_signed_up = api.Response(  # User signing up success
         code=201, success=True,
         public_sub_code='user.sign_up')
-    user_already_used = api.Response(
+
+    user_safe_to_use = api.Response(
+        # When user-wanted nick/id/email address can be used because no one isn't using them
+        code=200, success=False,
+        public_sub_code='user.safe_to_use')
+    user_already_used = api.Response(  # When there is a user that has  user-wanted nick/id/email
         code=401, success=False,
         public_sub_code='user.already_used',
         data={'duplicate': []})
+    user_info_mismatch = api.Response(
+        code=401, success=False,
+        public_sub_code='user.info_mismatch',
+        data={'fields': []})
 
     # Sign In related
     user_signed_in = api.Response(  # User signing in success

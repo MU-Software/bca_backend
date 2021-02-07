@@ -129,7 +129,7 @@ class PostRoute(flask.views.MethodView):
         response_comments = list()
         comment: board_module.Comment = None
         for comment in target_post.comments:
-            if not comment.deleted:
+            if not comment.deleted:  # if comment is not deleted
                 is_comment_readable: bool = (not comment.private) or user_has_power
                 if not is_comment_readable and access_token:
                     if comment.user_id == access_token.user:
@@ -221,10 +221,14 @@ class PostRoute(flask.views.MethodView):
         post_req = utils.request_body(
             required_fields=['title', 'body'],
             optional_fields=['announcement', 'private', 'commentable'])
-        if not post_req:
-            return CommonResponseCase.body_invalid.create_response()
         if type(post_req) == list:
             return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
+        elif post_req is None:
+            return CommonResponseCase.body_invalid.create_response()
+        elif not post_req:
+            return CommonResponseCase.body_empty.create_response()
+        elif type(post_req) != dict:
+            return CommonResponseCase.body_invalid.create_response()
 
         try:
             new_post = board_module.Post()
@@ -251,6 +255,7 @@ class PostRoute(flask.views.MethodView):
                     ('Last-Modified', new_post.modified_at),
                 ))
         except Exception:
+            # TODO: Check DB error
             return CommonResponseCase.server_error.create_response()
 
     # Modify post
@@ -266,10 +271,14 @@ class PostRoute(flask.views.MethodView):
             optional_fields=[
                 'title', 'body',
                 'announcement', 'private', 'commentable'])
-        if not post_req:
-            return CommonResponseCase.body_invalid.create_response()
         if type(post_req) == list:
             return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
+        elif post_req is None:
+            return CommonResponseCase.body_invalid.create_response()
+        elif not post_req:
+            return CommonResponseCase.body_empty.create_response()
+        elif type(post_req) != dict:
+            return CommonResponseCase.body_invalid.create_response()
 
         target_post: board_module.Post = None
         try:
@@ -370,4 +379,5 @@ class PostRoute(flask.views.MethodView):
                 data={'id': target_post.uuid}
             )
         except Exception:
+            # TODO: Check DB error
             return CommonResponseCase.server_error.create_response()

@@ -261,6 +261,25 @@ def isiterable(in_obj):
         return False
 
 
+def ignore_exception(IgnoreException=Exception, DefaultVal=None):
+    # from https://stackoverflow.com/a/2262424
+    """ Decorator for ignoring exception from a function
+    e.g.   @ignore_exception(DivideByZero)
+    e.g.2. ignore_exception(DivideByZero)(Divide)(2/0)
+    """
+    def dec(function):
+        def _dec(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            except IgnoreException:
+                return DefaultVal
+        return _dec
+    return dec
+
+
+safe_int = ignore_exception(Exception, 0)(int)
+
+
 # ---------- ETC ----------
 pmmod_desc = lambda a: ''.join(y for x,y in zip([4&a,2&a,1&a], list('RWX')) if x)  # noqa
 

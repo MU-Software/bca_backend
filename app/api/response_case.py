@@ -37,6 +37,9 @@ class CommonResponseCase(api.ResponseCaseCollector):
         # This will be responsed when user-sent body data is not parsable
         code=400, success=False,
         public_sub_code='request.body.invalid'),
+    body_empty = api.Response(
+        code=400, success=False,
+        public_sub_code='request.body.empty'),
     body_required_omitted = api.Response(
         code=400, success=False,
         public_sub_code='request.body.omitted',

@@ -129,6 +129,7 @@ def init_app(app: flask.Flask):
     global redis_db
 
     redis_db = redis.StrictRedis(
+        password=app.config.get('REDIS_PASSWORD'),
         host=app.config.get('REDIS_HOST'),
         port=app.config.get('REDIS_PORT'),
         db=app.config.get('REDIS_DB'))

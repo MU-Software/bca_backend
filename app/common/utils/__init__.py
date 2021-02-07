@@ -229,7 +229,13 @@ def cookie_datetime(dt_time: datetime.datetime) -> str:
 
 
 # ---------- Request body parser Function ----------
-def request_body(required_fields: list[str], optional_fields: list[str]) -> typing.Union[dict, list, None]:
+def request_body(required_fields: list[str], optional_fields: list[str] = []) -> typing.Union[dict, list, None]:
+    '''
+    return type
+        - dict: parsed request body
+        - list: required but not contained fields
+        - None: parse error
+    '''
     try:
         req_body = flask.request.get_json(force=True)
         req_body = {k: v for k, v in req_body.items() if k and v}  # basic filter for empty keys and values

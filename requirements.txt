@@ -1,0 +1,12 @@
+wheel
+
+argon2-cffi
+passlib
+authlib
+psycopg2
+pyjwt
+redis
+
+flask
+flask-sqlalchemy
+flask-admin

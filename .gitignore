@@ -147,3 +147,6 @@ pip-selfcheck.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+
+# SSH key file for DockerFile git clone
+id_rsa

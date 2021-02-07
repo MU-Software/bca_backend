@@ -143,12 +143,30 @@ class PostRoute(flask.views.MethodView):
                     'modified_at': comment.modified_at,
 
                     'private': comment.private,
+                    'deleted': False,
 
                     'user': comment.user.nickname,
                     'user_id': comment.user_id,
                     'is_post_author': target_post.user_id == comment.user_id,
 
                     'body': '' if not is_comment_readable else comment.body
+                })
+            else:  # if comment is deleted
+                response_comments.append({
+                    'id': comment.id,
+
+                    'created_at': 0,
+                    'modified': True,
+                    'modified_at': 0,
+
+                    'private': True,
+                    'deleted': True,
+
+                    'user': '',
+                    'user_id': 0,
+                    'is_post_author': False,
+
+                    'body': ''
                 })
 
         PostResponseCase.post_found.create_response(data={

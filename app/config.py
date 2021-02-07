@@ -7,8 +7,8 @@ class Config:
     TESTING = False
 
     JSON_AS_ASCII = False
-    PROJECT_NAME = 'CUBICO!'
-    BACKEND_NAME = 'CUBICO!'
+    PROJECT_NAME = os.environ.get('PROJECT_NAME')
+    BACKEND_NAME = os.environ.get('BACKEND_NAME')
     SERVER_NAME = os.environ.get('SERVER_NAME', None)
 
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
@@ -19,6 +19,7 @@ class Config:
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DB_URL')
 
+    REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD')
     REDIS_HOST = os.environ.get('REDIS_HOST')
     REDIS_PORT = int(os.environ.get('REDIS_PORT'))
     REDIS_DB = int(os.environ.get('REDIS_DB'))
@@ -30,6 +31,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    TESTING = False
     # os.environ['AUTHLIB_INSECURE_TRANSPORT'] = True
 
     SQLALCHEMY_ECHO = False
@@ -44,14 +46,13 @@ class DevelopmentConfig(Config):
 
 
 class TestingConfig(Config):
-    SECRET_KEY = secrets.token_hex(32)
+    DEBUG = False
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DB_URL')  # This will raise error when not set
 
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DB_URL', 'sqlite:///:memory:')
+    TESTING = False
 
 
 config_by_name = dict(

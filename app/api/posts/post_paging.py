@@ -1,9 +1,7 @@
 import flask
 import flask.views
-import jwt
 import math
 import sqlalchemy as sql
-import typing
 
 import app.common.utils as utils
 import app.database.jwt as jwt_module
@@ -14,43 +12,11 @@ from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
 
 
-def get_account_data() -> typing.Union[None, bool, jwt_module.AccessToken]:
-    '''
-    return case:
-        if None: Token not available
-        if False: Token must be re-issued
-        else: Token Object
-    '''
-    try:
-        access_token_cookie = flask.request.cookies.get('access_token', '')
-        if not access_token_cookie:
-            return None
-
-        try:
-            access_token = jwt_module.AccessToken.from_token(
-                access_token_cookie,
-                flask.current_app.config.get('SECRET_KEY'))
-        except jwt.exceptions.ExpiredSignatureError:
-            return False
-        except jwt.exceptions.InvalidTokenError as err:
-            if err.message == 'This token was revoked':
-                return False
-            return None
-        except Exception:
-            return None
-        if not access_token:
-            return None
-
-        return access_token
-    except Exception:
-        return None
-
-
 class PostListRoute(flask.views.MethodView):
     def get(self):
         user_is_admin: bool = False
         target_user_id: int = 0
-        access_token = get_account_data()
+        access_token = jwt_module.get_account_data()
 
         # Check access token on request
         if access_token is False:

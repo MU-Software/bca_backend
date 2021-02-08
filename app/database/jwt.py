@@ -3,6 +3,7 @@ import flask
 import inspect
 import jwt
 import redis
+import typing
 
 import app.common.utils as utils
 import app.database as db_module
@@ -272,3 +273,35 @@ def create_login_cookie(userdata: user_module.User, key: str, algorithm: str = '
         secure=not flask.current_app.config.get('DEBUG', False))
 
     return refresh_token_cookie, access_token_cookie, refresh_token_data, access_token_data
+
+
+def get_account_data() -> typing.Union[None, bool, jwt_module.AccessToken]:
+    '''
+    return case:
+        if None: Token not available
+        if False: Token must be re-issued
+        else: Token Object
+    '''
+    try:
+        access_token_cookie = flask.request.cookies.get('access_token', '')
+        if not access_token_cookie:
+            return None
+
+        try:
+            access_token = jwt_module.AccessToken.from_token(
+                access_token_cookie,
+                flask.current_app.config.get('SECRET_KEY'))
+        except jwt.exceptions.ExpiredSignatureError:
+            return False
+        except jwt.exceptions.InvalidTokenError as err:
+            if err.message == 'This token was revoked':
+                return False
+            return None
+        except Exception:
+            return None
+        if not access_token:
+            return None
+
+        return access_token
+    except Exception:
+        return None

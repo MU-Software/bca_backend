@@ -1,8 +1,6 @@
 import datetime
 import flask
 import flask.views
-import jwt
-import typing
 
 import app.common.utils as utils
 import app.database as db_module
@@ -13,38 +11,6 @@ import app.database.board as board_module
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
-
-
-def get_account_data() -> typing.Union[None, bool, jwt_module.AccessToken]:
-    '''
-    return case:
-        if None: Token not available
-        if False: Token must be re-issued
-        else: Token Object
-    '''
-    try:
-        access_token_cookie = flask.request.cookies.get('access_token', '')
-        if not access_token_cookie:
-            return None
-
-        try:
-            access_token = jwt_module.AccessToken.from_token(
-                access_token_cookie,
-                flask.current_app.config.get('SECRET_KEY'))
-        except jwt.exceptions.ExpiredSignatureError:
-            return False
-        except jwt.exceptions.InvalidTokenError as err:
-            if err.message == 'This token was revoked':
-                return False
-            return None
-        except Exception:
-            return None
-        if not access_token:
-            return None
-
-        return access_token
-    except Exception:
-        return None
 
 
 def has_post_permission(
@@ -96,6 +62,7 @@ class PostRoute(flask.views.MethodView):
                 data={'lacks': ['post_id']})
         elif not post_id.isdigit():
             return CommonResponseCase.http_mtd_forbidden.create_response()
+        post_id = int(post_id)
 
         target_post: board_module.Post = None
         try:
@@ -113,7 +80,7 @@ class PostRoute(flask.views.MethodView):
         # if target_post.private == False and target_post.readable == True, then response post data
         if (target_post.private) or (not target_post.readable):
             # Get user access token and check it
-            access_token = get_account_data()
+            access_token = jwt_module.get_account_data()
 
             if not access_token:
                 if access_token is False:
@@ -169,7 +136,7 @@ class PostRoute(flask.views.MethodView):
                     'body': ''
                 })
 
-        PostResponseCase.post_found.create_response(data={
+        return PostResponseCase.post_found.create_response(data={
             'id': post_id,
 
             'created_at': target_post.created_at,
@@ -204,7 +171,7 @@ class PostRoute(flask.views.MethodView):
 
         # Get user access token and check it
         user_is_superuser: bool = False
-        access_token: jwt_module.AccessToken = get_account_data()
+        access_token: jwt_module.AccessToken = jwt_module.get_account_data()
 
         # Check access token on request
         if not access_token:
@@ -283,6 +250,7 @@ class PostRoute(flask.views.MethodView):
                 data={'lacks': ['post_id']})
         if not post_id.isdigit():
             return CommonResponseCase.http_mtd_forbidden.create_response()
+        post_id = int(post_id)
 
         post_req = utils.request_body(
             required_fields=[],
@@ -310,7 +278,7 @@ class PostRoute(flask.views.MethodView):
             return PostResponseCase.post_not_found.create_response()
 
         # Check requested user is author
-        access_token: jwt_module.AccessToken = get_account_data()
+        access_token: jwt_module.AccessToken = jwt_module.get_account_data()
 
         if not access_token:
             if access_token is False:
@@ -351,6 +319,7 @@ class PostRoute(flask.views.MethodView):
                 data={'lacks': ['post_id']})
         if not post_id.isdigit():
             return CommonResponseCase.http_mtd_forbidden.create_response()
+        post_id = int(post_id)
 
         target_post: board_module.Post = None
         try:
@@ -364,7 +333,7 @@ class PostRoute(flask.views.MethodView):
             return PostResponseCase.post_not_found.create_response()
 
         # Get user access token and check it
-        access_token: jwt_module.AccessToken = get_account_data()
+        access_token: jwt_module.AccessToken = jwt_module.get_account_data()
 
         if not access_token:
             if access_token is False:

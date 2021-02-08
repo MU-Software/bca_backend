@@ -6,6 +6,7 @@ authlib
 psycopg2
 pyjwt
 redis
+lxml
 
 flask
 flask-sqlalchemy

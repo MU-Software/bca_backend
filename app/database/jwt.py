@@ -275,7 +275,7 @@ def create_login_cookie(userdata: user_module.User, key: str, algorithm: str = '
     return refresh_token_cookie, access_token_cookie, refresh_token_data, access_token_data
 
 
-def get_account_data() -> typing.Union[None, bool, jwt_module.AccessToken]:
+def get_account_data() -> typing.Union[None, bool, AccessToken]:
     '''
     return case:
         if None: Token not available
@@ -288,7 +288,7 @@ def get_account_data() -> typing.Union[None, bool, jwt_module.AccessToken]:
             return None
 
         try:
-            access_token = jwt_module.AccessToken.from_token(
+            access_token = AccessToken.from_token(
                 access_token_cookie,
                 flask.current_app.config.get('SECRET_KEY'))
         except jwt.exceptions.ExpiredSignatureError:

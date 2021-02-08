@@ -55,7 +55,7 @@ class PostListRoute(flask.views.MethodView):
 
         # Range-query posts(Paging ability)
         try:
-            req_post_per_page: int = utils.safe_int(flask.request.get('count-per-page', 0))
+            req_post_per_page: int = utils.safe_int(flask.request.args.get('count-per-page', 0))
             req_post_per_page = 25 if (not req_post_per_page) or (req_post_per_page > 100) else req_post_per_page
             post_list_query = post_list_query.limit(req_post_per_page)
 
@@ -63,15 +63,15 @@ class PostListRoute(flask.views.MethodView):
             page_count = int(math.ceil(post_count / req_post_per_page))
 
             req_page_number: int = 0
-            if flask.request.has('page'):
-                req_page_number: int = utils.safe_int(flask.request.get('page', 0))
+            if 'page' in flask.request.args:
+                req_page_number: int = utils.safe_int(flask.request.args.get('page', 0))
                 if page_count < req_page_number:
                     req_page_number = page_count
 
                 post_list_query = post_list_query.offset(req_page_number * req_post_per_page)
 
-            elif flask.request.has('last-offset'):
-                req_last_offset: int = utils.safe_int(flask.request.get('last-offset', 0))
+            elif 'last-offset' in flask.request.args:
+                req_last_offset: int = utils.safe_int(flask.request.args.get('last-offset', 0))
                 post_list_query = post_list_query.filter(board_module.Post.uuid < req_last_offset)
 
             else:

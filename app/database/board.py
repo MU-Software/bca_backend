@@ -44,10 +44,10 @@ class Post(db_module.DefaultModelMixin, db.Model):
                      primary_key=True,
                      nullable=False)
 
-    user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'))
+    user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
     user: user_module.User = db.relationship('User', backref=db.backref('posts', order_by='Post.modified_at.desc()'))
 
-    board_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_BOARD.uuid'))
+    board_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_BOARD.uuid'), nullable=False)
     board: 'Board' = db.relationship('Board', backref=db.backref('posts', order_by='Post.created_at.desc()'))
 
     title = db.Column(db.String, unique=False, nullable=False)
@@ -89,7 +89,7 @@ class Comment(db_module.DefaultModelMixin, db.Model):
                      db.Sequence('SQ_Comment_UUID'),
                      primary_key=True)
 
-    user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'))
+    user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
     user = db.relationship('User', backref=db.backref('comments', order_by='Comment.modified_at.desc()'))
 
     post_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_POST.uuid'))

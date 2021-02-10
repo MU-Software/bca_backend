@@ -12,15 +12,15 @@ class User(db_module.DefaultModelMixin, db.Model):
     id = db.Column(db.String, unique=True, nullable=False)
     nickname = db.Column(db.String, unique=True, nullable=False)
     password = db.Column(db.String, unique=False, nullable=False)
-    pw_changed_at = db.Column(db.DateTime, default=db.func.now())
+    pw_changed_at = db.Column(db.DateTime, default=db.func.now(), nullable=False)
 
     # No, We won't support multiple account
     email = db.Column(db.String(254), nullable=False, unique=True)
     email_verified = db.Column(db.Boolean, nullable=False, default=False)
     email_secret = db.Column(db.String, nullable=True)
 
-    last_login_date = db.Column(db.DateTime)
-    login_fail_count = db.Column(db.Integer, default=0)
+    last_login_date = db.Column(db.DateTime, nullable=False)
+    login_fail_count = db.Column(db.Integer, default=0, nullable=False)
     login_fail_date = db.Column(db.DateTime, nullable=True)
 
     locked_at = db.Column(db.DateTime, nullable=True)
@@ -28,8 +28,8 @@ class User(db_module.DefaultModelMixin, db.Model):
 
     deactivated_at = db.Column(db.DateTime, nullable=True)
     why_deactivated = db.Column(db.String, nullable=True)
-    deactivated_by = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'))
-    deactivated_by_orm = db.relationship('User')
+    deactivated_by_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=True)
+    deactivated_by = db.relationship('User')
 
     description = db.Column(db.String, nullable=True)
     profile_image = db.Column(db.String, nullable=True)  # This will point to user profile image url

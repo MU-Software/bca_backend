@@ -17,7 +17,7 @@ refresh_token_valid_duration: datetime.timedelta = datetime.timedelta(days=30)
 # Access token will expire after 1 hour
 access_token_valid_duration: datetime.timedelta = datetime.timedelta(hours=1)
 
-allowed_claim_in_jwt: list[str] = ['api_ver', 'iss', 'exp', 'user', 'sub', 'jti']
+allowed_claim_in_jwt: list[str] = ['api_ver', 'iss', 'exp', 'user', 'sub', 'jti', 'role']
 
 
 class TokenBase:
@@ -36,6 +36,7 @@ class TokenBase:
     # Private Claim
     user: int = -1  # Audience, User, Token holder
     # data: dict
+    role: str = ''
 
     def create_token(self, key: str, algorithm: str = 'HS256', exp_reset: bool = False) -> str:
         if not self.sub:
@@ -156,6 +157,7 @@ class AccessToken(TokenBase):
         new_token.user = refresh_token.user
         # Access token's JTI must be same with Refresh token's.
         new_token.jti = refresh_token.jti
+        new_token.role = refresh_token.role
 
         return new_token
 
@@ -176,6 +178,8 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
     user = db.Column(db_module.PrimaryKeyType,
                      db.ForeignKey('TB_USER.uuid'),
                      nullable=False)
+    # We need to change all refresh tokens' role when user's role is changed
+    role = db.Column(db.String, nullable=True)
 
     # Backref
     usertable = db.relationship('User',
@@ -188,6 +192,7 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
     def from_usertable(cls, userdata: user_module.User) -> 'RefreshToken':
         new_token = cls()
         new_token.usertable = userdata
+        new_token.role = userdata.role
         new_token.exp = datetime.datetime.utcnow().replace(microsecond=0)  # Drop microseconds
         new_token.exp += refresh_token_valid_duration
         return new_token

@@ -370,6 +370,7 @@ class PostRoute(flask.views.MethodView):
         try:
             target_post.deleted = True
             target_post.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
+            target_post.deleted_by_id = access_token.user
             db_module.db.session.commit()
             return PostResponseCase.post_deleted.create_response(
                 data={'id': target_post.uuid}

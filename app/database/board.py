@@ -78,6 +78,13 @@ class Comment(db_module.DefaultModelMixin, db.Model):
                                         'comments',
                                         order_by='Comment.created_at.desc()'))
 
+    parent_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_COMMENT.uuid'), nullable=False)
+    parent: 'Comment' = db.relationship('Comment',
+                                        backref=db.backref(
+                                            'children',
+                                            order_by='Comment.created_at.desc()'))
+    order = db.Column(db.Integer, nullable=False)
+
     body = db.Column(db.String, unique=False, nullable=False)
 
     deleted = db.Column(db.Boolean, default=False, nullable=False)

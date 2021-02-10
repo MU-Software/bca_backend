@@ -116,6 +116,9 @@ class PostRoute(flask.views.MethodView):
                     'user_id': comment.user_id,
                     'is_post_author': target_post.user_id == comment.user_id,
 
+                    'parent': comment.parent_id,
+                    'order': comment.order,
+
                     'body': '' if not is_comment_readable else comment.body
                 })
             else:  # if comment is deleted
@@ -132,6 +135,9 @@ class PostRoute(flask.views.MethodView):
                     'user': '',
                     'user_id': 0,
                     'is_post_author': False,
+
+                    'parent': comment.parent_id,
+                    'order': comment.order,
 
                     'body': ''
                 })

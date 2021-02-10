@@ -45,7 +45,7 @@ def has_post_permission(
         if post_obj.user_id == target_user.uuid:
             # Even though the user is author, author cannot get permission when some flags are set
             if action == 'get':
-                return post_obj.readable
+                return True
             elif action == 'put' or action == 'delete':
                 return post_obj.modifiable
     except Exception:
@@ -77,8 +77,8 @@ class PostRoute(flask.views.MethodView):
 
         user_has_power: bool = False  # This var will be used on comment processing
         access_token: jwt_module.AccessToken = None
-        # if target_post.private == False and target_post.readable == True, then response post data
-        if (target_post.private) or (not target_post.readable):
+        # if target_post.private == False, then response post data
+        if target_post.private:
             # Get user access token and check it
             access_token = jwt_module.get_account_data()
 

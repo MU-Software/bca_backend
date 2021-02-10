@@ -55,7 +55,6 @@ class Post(db_module.DefaultModelMixin, db.Model):
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     commentable = db.Column(db.Boolean, default=True, nullable=False)
-    readable = db.Column(db.Boolean, default=True, nullable=False)
     modifiable = db.Column(db.Boolean, default=True, nullable=False)
 
     comments: list['Comment'] = None  # Placeholder for backref
@@ -84,7 +83,6 @@ class Comment(db_module.DefaultModelMixin, db.Model):
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     private = db.Column(db.Boolean, default=False, nullable=False)
 
-    readable = db.Column(db.Boolean, default=True, nullable=False)
     modifiable = db.Column(db.Boolean, default=True, nullable=False)
     deletable = db.Column(db.Boolean, default=True, nullable=False)
 

@@ -20,14 +20,14 @@ class Board(db_module.DefaultModelMixin, db.Model):
     locked_by_id = db.Column(db_module.PrimaryKeyType,
                              db.ForeignKey('TB_USER.uuid'),
                              nullable=True)
-    locked_by = db.relationship('User')
+    locked_by = db.relationship(user_module.User, primaryjoin=locked_by_id == user_module.User.uuid)
 
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db_module.PrimaryKeyType,
                               db.ForeignKey('TB_USER.uuid'),
                               nullable=True)
-    deleted_by = db.relationship('User')
+    deleted_by = db.relationship(user_module.User, primaryjoin=deleted_by_id == user_module.User.uuid)
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     commentable = db.Column(db.Boolean, default=True, nullable=False)
@@ -45,10 +45,16 @@ class Post(db_module.DefaultModelMixin, db.Model):
                      nullable=False)
 
     user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
-    user: user_module.User = db.relationship('User', backref=db.backref('posts', order_by='Post.modified_at.desc()'))
+    user: user_module.User = db.relationship('User',
+                                             primaryjoin=user_id == user_module.User.uuid,
+                                             backref=db.backref('posts',
+                                                                order_by='Post.modified_at.desc()'))
 
     board_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_BOARD.uuid'), nullable=False)
-    board: 'Board' = db.relationship('Board', backref=db.backref('posts', order_by='Post.created_at.desc()'))
+    board: 'Board' = db.relationship('Board',
+                                     primaryjoin=board_id == Board.uuid,
+                                     backref=db.backref('posts',
+                                                        order_by='Post.created_at.desc()'))
 
     title = db.Column(db.String, unique=False, nullable=False)
     body = db.Column(db.String, unique=False, nullable=False)
@@ -64,14 +70,14 @@ class Post(db_module.DefaultModelMixin, db.Model):
     locked_by_id = db.Column(db_module.PrimaryKeyType,
                              db.ForeignKey('TB_USER.uuid'),
                              nullable=True)
-    locked_by = db.relationship('User')
+    locked_by = db.relationship(user_module.User, primaryjoin=locked_by_id == user_module.User.uuid)
 
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db_module.PrimaryKeyType,
                               db.ForeignKey('TB_USER.uuid'),
                               nullable=True)
-    deleted_by = db.relationship('User')
+    deleted_by = db.relationship(user_module.User, primaryjoin=deleted_by_id == user_module.User.uuid)
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     commentable = db.Column(db.Boolean, default=True, nullable=False)
@@ -90,7 +96,10 @@ class Comment(db_module.DefaultModelMixin, db.Model):
                      primary_key=True)
 
     user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
-    user = db.relationship('User', backref=db.backref('comments', order_by='Comment.modified_at.desc()'))
+    user = db.relationship('User',
+                           primaryjoin=user_id == user_module.User.uuid,
+                           backref=db.backref('comments',
+                                              order_by='Comment.modified_at.desc()'))
 
     post_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_POST.uuid'))
     post: 'Post' = db.relationship('Post',
@@ -100,6 +109,7 @@ class Comment(db_module.DefaultModelMixin, db.Model):
 
     parent_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_COMMENT.uuid'), nullable=False)
     parent: 'Comment' = db.relationship('Comment',
+                                        primaryjoin=parent_id == 'Comment.uuid',
                                         backref=db.backref(
                                             'children',
                                             order_by='Comment.created_at.desc()'))
@@ -112,7 +122,7 @@ class Comment(db_module.DefaultModelMixin, db.Model):
     deleted_by_id = db.Column(db_module.PrimaryKeyType,
                               db.ForeignKey('TB_USER.uuid'),
                               nullable=True)
-    deleted_by = db.relationship('User')
+    deleted_by = db.relationship(user_module.User, primaryjoin=deleted_by_id == user_module.User.uuid)
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     modifiable = db.Column(db.Boolean, default=True, nullable=False)
@@ -140,6 +150,7 @@ class PostTagRelation(db.Model):
                         db.ForeignKey('TB_POST.uuid'),
                         nullable=False)
     post: 'Post' = db.relationship('Post',
+                                   primaryjoin=post_id == Post.uuid,
                                    backref=db.backref(
                                         'tags',
                                         order_by='PostTagRelation.created_at.desc()'))
@@ -148,6 +159,7 @@ class PostTagRelation(db.Model):
                        db.ForeignKey('TB_TAG.uuid'),
                        nullable=False)
     tag: 'Tag' = db.relationship('Tag',
+                                 primaryjoin=tag_id == Tag.uuid,
                                  backref=db.backref(
                                     'posts',
                                     order_by='PostTagRelation.created_at.desc()'))
@@ -164,6 +176,7 @@ class PostLike(db_module.DefaultModelMixin, db.Model):
                         db.ForeignKey('TB_POST.uuid'),
                         nullable=False)
     post: 'Post' = db.relationship('Post',
+                                   primaryjoin=post_id == Post.uuid,
                                    backref=db.backref(
                                         'liked_by',
                                         order_by='PostLike.created_at.desc()'))
@@ -172,6 +185,7 @@ class PostLike(db_module.DefaultModelMixin, db.Model):
                         db.ForeignKey('TB_USER.uuid'),
                         nullable=False)
     user: 'user_module.User' = db.relationship('User',
+                                               primaryjoin=user_id == user_module.User.uuid,
                                                backref=db.backref(
                                                     'liked_on',
                                                     order_by='PostLike.created_at.desc()'))
@@ -188,6 +202,7 @@ class PostFavorite(db_module.DefaultModelMixin, db.Model):
                         db.ForeignKey('TB_POST.uuid'),
                         nullable=False)
     post: 'Post' = db.relationship('Post',
+                                   primaryjoin=post_id == Post.uuid,
                                    backref=db.backref(
                                         'favorited_by',
                                         order_by='PostFavorite.created_at.desc()'))
@@ -196,6 +211,7 @@ class PostFavorite(db_module.DefaultModelMixin, db.Model):
                         db.ForeignKey('TB_USER.uuid'),
                         nullable=False)
     user: 'user_module.User' = db.relationship('User',
+                                               primaryjoin=user_id == user_module.User.uuid,
                                                backref=db.backref(
                                                     'favorited_on',
                                                     order_by='PostFavorite.created_at.desc()'))

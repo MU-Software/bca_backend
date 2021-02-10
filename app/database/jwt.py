@@ -167,24 +167,22 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
     sub: str = 'Refresh'
     # Redefine fields to define SA's column on metadata
     # JWT token ID
-    jti = db.Column(
-                db_module.PrimaryKeyType,
-                db.Sequence('SQ_RefreshToken_UUID'),
-                primary_key=True)
+    jti = db.Column(db_module.PrimaryKeyType,
+                    db.Sequence('SQ_RefreshToken_UUID'),
+                    primary_key=True)
     # Expiration Unix Time
     exp = db.Column(db.DateTime, nullable=False)
     # Audience, User, Token holder
-    user = db.Column(
-                db_module.PrimaryKeyType,
-                db.ForeignKey('TB_USER.uuid'),
-                nullable=False)
+    user = db.Column(db_module.PrimaryKeyType,
+                     db.ForeignKey('TB_USER.uuid'),
+                     nullable=False)
 
     # Backref
-    usertable = db.relationship(
-                    'User',
-                    backref=db.backref(
-                                'refresh_tokens',
-                                order_by='RefreshToken.modified_at.desc()'))
+    usertable = db.relationship('User',
+                                primaryjoin=user == user_module.User.uuid,
+                                backref=db.backref('refresh_tokens',
+                                                   order_by='RefreshToken.modified_at.desc()'))
+
 
     @classmethod
     def from_usertable(cls, userdata: user_module.User) -> 'RefreshToken':

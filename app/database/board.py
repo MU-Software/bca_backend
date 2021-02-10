@@ -15,7 +15,19 @@ class Board(db_module.DefaultModelMixin, db.Model):
     board_type = db.Column(db.String, default='normal', nullable=False)
     description = db.Column(db.String, unique=False, nullable=False)
 
+    locked = db.Column(db.Boolean, default=False, nullable=False)
+    locked_at = db.Column(db.DateTime, nullable=True)
+    locked_by_id = db.Column(db_module.PrimaryKeyType,
+                             db.ForeignKey('TB_USER.uuid'),
+                             nullable=True)
+    locked_by = db.relationship('User')
+
     deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by_id = db.Column(db_module.PrimaryKeyType,
+                              db.ForeignKey('TB_USER.uuid'),
+                              nullable=True)
+    deleted_by = db.relationship('User')
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     commentable = db.Column(db.Boolean, default=True, nullable=False)
@@ -49,9 +61,17 @@ class Post(db_module.DefaultModelMixin, db.Model):
     #   - only can be accessed by DB manager
     locked = db.Column(db.Boolean, default=False, nullable=False)
     locked_at = db.Column(db.DateTime, nullable=True)
+    locked_by_id = db.Column(db_module.PrimaryKeyType,
+                             db.ForeignKey('TB_USER.uuid'),
+                             nullable=True)
+    locked_by = db.relationship('User')
 
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by_id = db.Column(db_module.PrimaryKeyType,
+                              db.ForeignKey('TB_USER.uuid'),
+                              nullable=True)
+    deleted_by = db.relationship('User')
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     commentable = db.Column(db.Boolean, default=True, nullable=False)
@@ -88,6 +108,11 @@ class Comment(db_module.DefaultModelMixin, db.Model):
     body = db.Column(db.String, unique=False, nullable=False)
 
     deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by_id = db.Column(db_module.PrimaryKeyType,
+                              db.ForeignKey('TB_USER.uuid'),
+                              nullable=True)
+    deleted_by = db.relationship('User')
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     modifiable = db.Column(db.Boolean, default=True, nullable=False)

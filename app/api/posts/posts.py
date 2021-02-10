@@ -309,12 +309,15 @@ class PostRoute(flask.views.MethodView):
         if (target_post.user_id != access_token.user) or (not target_post.modifiable):
             return PostResponseCase.post_forbidden.create_response()
 
-        # Modify post using request body
-        for req_key, req_value in post_req.items():
-            setattr(target_post, req_key, req_value)
-        db_module.db.session.commit()
+        try:
+            # Modify post using request body
+            for req_key, req_value in post_req.items():
+                setattr(target_post, req_key, req_value)
+            db_module.db.session.commit()
 
-        return PostResponseCase.post_modified.create_response()
+            return PostResponseCase.post_modified.create_response()
+        except Exception:
+            return CommonResponseCase.db_error.create_response()
 
     # Delete post
     def delete(self, post_id: str):

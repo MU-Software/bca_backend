@@ -180,6 +180,7 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
                      nullable=False)
     # We need to change all refresh tokens' role when user's role is changed
     role = db.Column(db.String, nullable=True)
+    ip_addr = db.Column(db.String, nullable=False)
 
     # Backref
     usertable = db.relationship('User',
@@ -187,6 +188,10 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
                                 backref=db.backref('refresh_tokens',
                                                    order_by='RefreshToken.modified_at.desc()'))
 
+    user_agent = db.Column(db.String, nullable=False)
+    # Token data for sending notification on specific client device.
+    # Only available on mobile.
+    client_token = db.Column(db.String, nullable=True)
 
     @classmethod
     def from_usertable(cls, userdata: user_module.User) -> 'RefreshToken':
@@ -246,14 +251,17 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
         return super().create_token(key, algorithm, False)
 
 
-def create_login_cookie(userdata: user_module.User, key: str, algorithm: str = 'HS256') -> tuple[str, str, dict, dict]:
-    secret_key = flask.current_app.config.get('SECRET_KEY')
-
-    refresh_token = RefreshToken.from_usertable(userdata)
-    refresh_token_jwt = refresh_token.create_token(secret_key)
+def create_login_cookie(user_data: user_module.User,
+                        user_agent: str, client_token: typing.Optional[str], ip_addr: str,
+                        key: str, algorithm: str = 'HS256') -> tuple[str, str, dict, dict]:
+    refresh_token = RefreshToken.from_usertable(user_data)
+    refresh_token.user_agent = user_agent
+    refresh_token.client_token = client_token
+    refresh_token.ip_addr = ip_addr
+    refresh_token_jwt = refresh_token.create_token(key, algorithm)
 
     access_token = AccessToken.from_refresh_token(refresh_token)
-    access_token_jwt = access_token.create_token(secret_key)
+    access_token_jwt = access_token.create_token(key, algorithm)
 
     refresh_token_data = {
         'exp': refresh_token.exp,

@@ -32,6 +32,8 @@ class SignInRoute(flask.views.MethodView):
             return api.create_response(
                 code=400, success=False,
                 message='Wrong request body data - JSON decode failed')
+        if 'User-Agent' not in flask.request.headers:
+            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
 
         account_result, reason = user.User.try_login(login_req['id'], login_req['pw'])
 
@@ -58,6 +60,9 @@ class SignInRoute(flask.views.MethodView):
             refresh_token_data,\
             access_token_data = jwt_module.create_login_cookie(
                                             account_result,
+                                            flask.request.headers.get('User-Agent'),
+                                            flask.request.headers.get('Client-Token', None),
+                                            flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
         return AccountResponseCase.user_signed_in.create_response(

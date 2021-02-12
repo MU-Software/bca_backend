@@ -47,6 +47,8 @@ class SignUpRoute(flask.views.MethodView):
             new_user_req.pop(unwanted)
 
         new_user_pw = new_user_req.pop('pw')
+        if 'User-Agent' not in flask.request.headers:
+            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
 
         new_user = user.User()
         new_user.email = new_user_req['email']
@@ -115,6 +117,9 @@ class SignUpRoute(flask.views.MethodView):
             refresh_token_data,\
             access_token_data = jwt_module.create_login_cookie(
                                             new_user,
+                                            flask.request.headers.get('User-Agent'),
+                                            flask.request.headers.get('Client-Token', None),
+                                            flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
         return api.create_response(

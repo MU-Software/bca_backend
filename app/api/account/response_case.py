@@ -29,6 +29,9 @@ class AccountResponseCase(api.ResponseCaseCollector):
     user_signed_up = api.Response(  # User signing up success
         code=201, success=True,
         public_sub_code='user.sign_up')
+    user_signed_up_but_mail_error = api.Response(  # User signing up success, but sign-up mail did not sent
+        code=201, success=True,
+        public_sub_code='user.sign_up_but_mail_error')
 
     user_safe_to_use = api.Response(
         # When user-wanted nick/id/email address can be used because no one isn't using them

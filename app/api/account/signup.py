@@ -15,6 +15,7 @@ import app.database.jwt as jwt_module
 import app.common.decorator as deco_module
 
 from app.api.response_case import CommonResponseCase
+from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
 
@@ -25,28 +26,20 @@ signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(days=
 class SignUpRoute(flask.views.MethodView):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     def post(self):
-        try:
-            new_user_req = flask.request.get_json(force=True)
-            new_user_req = {k: v for k, v in new_user_req.items() if v}
-        except Exception:
+        new_user_req = utils.request_body(
+            required_fields=['id', 'pw', 'nick', 'email'],
+            optional_fields=['description']
+        )
+
+        if type(new_user_req) == list:
+            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': login_req})
+        elif new_user_req is None:
+            return CommonResponseCase.body_invalid.create_response()
+        elif not new_user_req:
+            return CommonResponseCase.body_empty.create_response()
+        elif type(new_user_req) != dict:
             return CommonResponseCase.body_invalid.create_response()
 
-        # At least we need those values.
-        must_require = ['id', 'pw', 'nick', 'email']
-
-        missing_info = [z for z in must_require if z not in new_user_req]
-        if missing_info:
-            return CommonResponseCase.body_required_omitted.create_response(
-                data={'lacks': missing_info}
-            )
-
-        # Allow only those columns so that user cannot change important values.
-        new_user_info_keys = ['id', 'pw', 'nick', 'email', 'description']
-        unwanted_keys = set(list(new_user_req.keys())) - set(new_user_info_keys)
-        for unwanted in unwanted_keys:
-            new_user_req.pop(unwanted)
-
-        new_user_pw = new_user_req.pop('pw')
         if 'User-Agent' not in flask.request.headers:
             return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
 
@@ -55,7 +48,7 @@ class SignUpRoute(flask.views.MethodView):
         new_user.id = new_user_req['id']
         new_user.nickname = new_user_req['nick']
         new_user.description = None if not new_user_req.get('description', '') else new_user_req['description']
-        new_user.password = argon2.hash(new_user_pw)
+        new_user.password = argon2.hash(new_user_req['pw'])
         new_user.pw_changed_at = sql.func.now()
         new_user.last_login_date = sql.func.now()
         db.session.add(new_user)
@@ -82,17 +75,13 @@ class SignUpRoute(flask.views.MethodView):
             try:
                 err_diag = db_module.IntegrityCaser(err)
                 if err_diag[0] == 'FAILED_UNIQUE':
-                    return api.create_response(
-                        code=401, success=False,
-                        message=f'"{err_diag[1]}" is already in use')
+                    return AccountResponseCase.user_already_used.create_response(data={'duplicate': err_diag[1]})
                 else:
                     raise err
             except Exception:
-                print(str(err))
-                return api.create_response(
-                    code=500, success=False,
-                    message='Unknown error occured while registering new user')
+                return CommonResponseCase.server_error.create_response()
 
+        mail_sent: bool = True
         try:
             email_result = flask.render_template(
                 'email/email_verify.html',
@@ -107,10 +96,9 @@ class SignUpRoute(flask.views.MethodView):
                 new_user.email,
                 'DEVCO에 오신 것을 환영합니다!',
                 email_result)
-        except Exception as err:
-            import traceback
-            print(''.join(traceback.format_exception(etype=type(err), value=err, tb=err.__traceback__)))
-            print('Error raised while sending user email verification mail')
+            mail_sent = True
+        except Exception:
+            mail_sent = False
 
         refresh_token_cookie,\
             access_token_cookie,\
@@ -122,9 +110,11 @@ class SignUpRoute(flask.views.MethodView):
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
-        return api.create_response(
-            code=201, success=True,
-            message='',
+        response_type: api.Response = AccountResponseCase.user_signed_up
+        if mail_sent:
+            response_type = AccountResponseCase.user_signed_up_but_mail_error
+
+        return response_type.create_response(
             header=(
                 ('Set-Cookie', refresh_token_cookie),
                 ('Set-Cookie', access_token_cookie),
@@ -132,4 +122,5 @@ class SignUpRoute(flask.views.MethodView):
             data={
                 'RefreshToken': refresh_token_data,
                 'AccessToken': access_token_data,
-            })
+            }
+        )

@@ -2,6 +2,7 @@ import flask
 import flask.views
 
 import app.api as api
+import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
@@ -17,21 +18,17 @@ class SignInRoute(flask.views.MethodView):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     def post(self):
         # { 'id' : '', 'pw' : '' }
+        login_req = utils.request_body(required_fields=['id', 'pw'])
 
-        # TODO: Remove previous token and issue new token when client environment is same
-        try:
-            login_req = flask.request.get_json(force=True)
-            login_req = {k: v for k, v in login_req.items() if v}
+        if type(login_req) == list:
+            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': login_req})
+        elif login_req is None:
+            return CommonResponseCase.body_invalid.create_response()
+        elif not login_req:
+            return CommonResponseCase.body_empty.create_response()
+        elif type(login_req) != dict:
+            return CommonResponseCase.body_invalid.create_response()
 
-            required_fields = ['id', 'pw']
-            if (not all([z in login_req.keys() for z in required_fields])) or (not all(list(login_req.values()))):
-                return api.create_response(
-                    code=400, success=False,
-                    message='ID or Password omitted')
-        except Exception:
-            return api.create_response(
-                code=400, success=False,
-                message='Wrong request body data - JSON decode failed')
         if 'User-Agent' not in flask.request.headers:
             return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
 

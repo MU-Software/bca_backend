@@ -10,7 +10,7 @@ db = db_module.db
 
 
 class EmailActionRoute(flask.views.MethodView):
-    def get(self, email_token):
+    def get(self, email_token: str):
         if not email_token:
             return api.create_response(
                 code=400, success=False,
@@ -23,7 +23,6 @@ class EmailActionRoute(flask.views.MethodView):
                 code=400, success=False,
                 message='Your email has expired')
         except jwt.exceptions.DecodeError as err:
-
             import traceback
             print(''.join(traceback.format_exception(etype=type(err), value=err, tb=err.__traceback__)))
             return api.create_response(

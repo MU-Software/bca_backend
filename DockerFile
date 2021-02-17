@@ -1,0 +1,43 @@
+# ---------- Clone stage ----------
+FROM alpine:latest as CLONE_STAGE
+LABEL maintainer="MUsoftware <musoftware@mudev.cc>"
+
+# Install required packages
+RUN apk update \
+  && apk add --no-cache git \
+  && apk add --no-cache openssh-client \
+  && apk add --no-cache gcc \
+  && rm -rf /var/cache/apk/*
+
+# Make ssh dir and copy over pricate key, and set permissions
+RUN mkdir /root/.ssh
+COPY id_rsa /root/.ssh/id_rsa
+RUN chmod 600 /root/.ssh/id_rsa
+
+# Create known_hosts
+RUN touch /root/.ssh/known_hosts
+RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+# Clone private GIT repository and change directory
+WORKDIR /root
+RUN git clone git@github.com:MU-Software/CUBICO_backend.git
+WORKDIR /root/CUBICO_backend
+
+# ---------- Build stage ----------
+FROM python:3.9
+
+# Copy files from previous stage
+WORKDIR /root/
+RUN mkdir /root/CUBICO_backend
+COPY --from=CLONE_STAGE /root/CUBICO_backend/ /root/CUBICO_backend/
+RUN rm -rf /root/CUBICO_backend/.git/
+
+# Setup dependencies
+WORKDIR /root/CUBICO_backend
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose API port
+EXPOSE 5000
+
+# Now, run server
+CMD [ "python", "-m", "flask", "run" ]

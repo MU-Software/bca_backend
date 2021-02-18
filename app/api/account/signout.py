@@ -21,7 +21,6 @@ class SignOutRoute(flask.views.MethodView):
             return CommonResponseCase.body_invalid.create_response()
 
         if 'signout' not in signout_req:
-            # TODO: Use CommonResponseCase.body_required_omitted
             return CommonResponseCase.body_required_omitted.create_response(
                 data={'lacks': ['signout']}
             )

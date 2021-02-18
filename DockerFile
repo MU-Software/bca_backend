@@ -42,4 +42,4 @@ EXPOSE 5000
 
 # Now, run server
 # CMD [ "python", "-m", "flask", "run" ]  # Without Gunicorn
-CMD [ "gunicorn", "-b", "0.0.0.0:5000", "app:app" ]
+CMD [ "gunicorn", "-b", "0.0.0.0:5000", "app:create_app()" ]

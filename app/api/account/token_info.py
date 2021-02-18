@@ -10,7 +10,7 @@ db = db_module.db
 
 
 class TokenInfoRoute(flask.views.MethodView):
-    def post(self):
+    def get(self):
         result_dict = {
             'AccessToken': None,
             'RefreshToken': None

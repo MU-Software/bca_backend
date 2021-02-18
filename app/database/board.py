@@ -110,10 +110,10 @@ class Comment(db_module.DefaultModelMixin, db.Model):
     parent_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_COMMENT.uuid'), nullable=False)
     parent: 'Comment' = db.relationship('Comment',
                                         primaryjoin='Comment.parent_id == Comment.uuid',
+                                        remote_side='Comment.uuid',
                                         backref=db.backref(
                                             'children',
-                                            order_by='Comment.created_at.desc()'),
-                                            remote_side='Comment.uuid')
+                                            order_by='Comment.created_at.desc()'))
     order = db.Column(db.Integer, nullable=False)
 
     body = db.Column(db.String, unique=False, nullable=False)

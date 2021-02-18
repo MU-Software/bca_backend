@@ -13,3 +13,5 @@ user-agents
 flask
 flask-sqlalchemy
 flask-admin
+
+gunicorn

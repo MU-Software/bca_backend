@@ -21,6 +21,7 @@ RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 # Clone private GIT repository and change directory
 WORKDIR /root
 RUN git clone git@github.com:MU-Software/CUBICO_backend.git
+RUN rm -rf /root/.ssh
 WORKDIR /root/CUBICO_backend
 
 # ---------- Build stage ----------
@@ -40,4 +41,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 5000
 
 # Now, run server
-CMD [ "python", "-m", "flask", "run" ]
+# CMD [ "python", "-m", "flask", "run" ]  # Without Gunicorn
+CMD [ "gunicorn", "-b", "0.0.0.0:5000", "app:app" ]

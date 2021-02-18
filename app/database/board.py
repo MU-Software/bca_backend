@@ -109,10 +109,11 @@ class Comment(db_module.DefaultModelMixin, db.Model):
 
     parent_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_COMMENT.uuid'), nullable=False)
     parent: 'Comment' = db.relationship('Comment',
-                                        primaryjoin=parent_id == 'Comment.uuid',
+                                        primaryjoin='Comment.parent_id == Comment.uuid',
                                         backref=db.backref(
                                             'children',
-                                            order_by='Comment.created_at.desc()'))
+                                            order_by='Comment.created_at.desc()'),
+                                            remote_side='Comment.uuid')
     order = db.Column(db.Integer, nullable=False)
 
     body = db.Column(db.String, unique=False, nullable=False)
@@ -151,18 +152,14 @@ class PostTagRelation(db.Model):
                         nullable=False)
     post: 'Post' = db.relationship('Post',
                                    primaryjoin=post_id == Post.uuid,
-                                   backref=db.backref(
-                                        'tags',
-                                        order_by='PostTagRelation.created_at.desc()'))
+                                   backref=db.backref('tags'))
 
     tag_id = db.Column(db_module.PrimaryKeyType,
                        db.ForeignKey('TB_TAG.uuid'),
                        nullable=False)
     tag: 'Tag' = db.relationship('Tag',
                                  primaryjoin=tag_id == Tag.uuid,
-                                 backref=db.backref(
-                                    'posts',
-                                    order_by='PostTagRelation.created_at.desc()'))
+                                 backref=db.backref('posts'))
 
 
 class PostLike(db_module.DefaultModelMixin, db.Model):

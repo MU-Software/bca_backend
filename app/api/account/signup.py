@@ -23,7 +23,7 @@ db = db_module.db
 signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(days=7)
 
 
-class SignUpRoute(flask.views.MethodView):
+class SignUpRoute(flask.views.MethodView, api.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     def post(self):
         new_user_req = utils.request_body(
@@ -32,7 +32,7 @@ class SignUpRoute(flask.views.MethodView):
         )
 
         if type(new_user_req) == list:
-            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': login_req})
+            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': new_user_req})
         elif new_user_req is None:
             return CommonResponseCase.body_invalid.create_response()
         elif not new_user_req:

@@ -9,7 +9,7 @@ import app.database.jwt as jwt_module
 db = db_module.db
 
 
-class TokenInfoRoute(flask.views.MethodView):
+class TokenInfoRoute(flask.views.MethodView, api.MethodViewMixin):
     def get(self):
         result_dict = {
             'AccessToken': None,

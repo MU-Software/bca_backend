@@ -14,7 +14,7 @@ db = db_module.db
 redis_db = db_module.redis_db
 
 
-class AccessTokenIssueRoute(flask.views.MethodView):
+class AccessTokenIssueRoute(flask.views.MethodView, api.MethodViewMixin):
     def post(self):
         refresh_token_cookie = flask.request.cookies.get('refresh_token', type=str, default='')
 

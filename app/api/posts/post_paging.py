@@ -3,6 +3,7 @@ import flask.views
 import math
 import sqlalchemy as sql
 
+import app.api as api
 import app.common.utils as utils
 import app.database.jwt as jwt_module
 import app.database.board as board_module
@@ -12,7 +13,7 @@ from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
 
 
-class PostListRoute(flask.views.MethodView):
+class PostListRoute(flask.views.MethodView, api.MethodViewMixin):
     def get(self):
         user_is_admin: bool = False
         target_user_id: int = 0

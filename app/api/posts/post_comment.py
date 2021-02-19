@@ -3,6 +3,7 @@ import flask
 import flask.views
 import sqlalchemy as sql
 
+import app.api as api
 import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
@@ -55,7 +56,7 @@ def has_post_permission(
     return False
 
 
-class PostCommentGetRoute(flask.views.MethodView):
+class PostCommentGetRoute(flask.views.MethodView, api.MethodViewMixin):
     # Return post comments
     # This is the only route of this class
     def get(self, post_id: str):
@@ -147,7 +148,7 @@ class PostCommentGetRoute(flask.views.MethodView):
         return PostResponseCase.post_found.create_response(data={'comments': response_comments})
 
 
-class PostCommentRoute(flask.views.MethodView):
+class PostCommentRoute(flask.views.MethodView, api.MethodViewMixin):
     # Create new comment
     def post(self, post_id: str, comment_id: str):
         if (not post_id) or (not comment_id):

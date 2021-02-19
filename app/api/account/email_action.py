@@ -9,7 +9,7 @@ import app.database.user as user
 db = db_module.db
 
 
-class EmailActionRoute(flask.views.MethodView):
+class EmailActionRoute(flask.views.MethodView, api.MethodViewMixin):
     def get(self, email_token: str):
         if not email_token:
             return api.create_response(

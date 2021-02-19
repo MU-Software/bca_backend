@@ -1,6 +1,7 @@
 import flask
 import flask.views
 
+import app.api as api
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.board as board_module
@@ -10,7 +11,7 @@ from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
 
 
-class PostLikeRoute(flask.views.MethodView):
+class PostLikeRoute(flask.views.MethodView, api.MethodViewMixin):
     # Return who liked this post
     def get(self, post_id: str):
         if not post_id:

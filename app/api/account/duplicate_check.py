@@ -1,6 +1,7 @@
 import flask
 import flask.views
 
+import app.api as api
 import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
@@ -11,7 +12,7 @@ from app.api.account.response_case import AccountResponseCase
 db = db_module.db
 
 
-class AccountDuplicateCheckRoute(flask.views.MethodView):
+class AccountDuplicateCheckRoute(flask.views.MethodView, api.MethodViewMixin):
     def post(self):
         # Check duplicates about posted request data
         dupcheck_req = utils.request_body(

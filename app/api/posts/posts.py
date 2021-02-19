@@ -55,7 +55,7 @@ def has_post_permission(
     return False
 
 
-class PostRoute(flask.views.MethodView):
+class PostRoute(flask.views.MethodView, api.MethodViewMixin):
     # Return post content & comments
     def get(self, post_id: str):
         if not post_id:

@@ -11,6 +11,7 @@ pyyaml
 user-agents
 
 flask
+flask-cors
 flask-sqlalchemy
 flask-admin
 flask-socketio

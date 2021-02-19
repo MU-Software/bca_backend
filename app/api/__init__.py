@@ -1,5 +1,6 @@
 import dataclasses
 import flask
+import flask_cors
 import typing
 
 import app.common.utils as utils
@@ -38,7 +39,6 @@ def create_response(
         # because flask.jsonify will add it.
 
         # Add CORS header
-        ('Access-Control-Allow-Origin', '*'),
         ('Server', server_name),
     )
 
@@ -89,6 +89,8 @@ if flask.current_app.config.get('RESTAPI_VERSION') == 'dev':
 def init_app(app: flask.Flask):
     global restapi_version
     restapi_version = app.config.get('RESTAPI_VERSION')
+
+    flask_cors.CORS(app, resources={'*': {'origins': 'https://protoco.cc'}})
 
     import app.api.request_handler as req_handler  # noqa
     req_handler.register_request_handler(app)

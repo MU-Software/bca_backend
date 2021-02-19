@@ -1,14 +1,30 @@
 import dataclasses
 import flask
 import flask_cors
+import inspect
 import typing
 
 import app.common.utils as utils
+from app.api.response_case import CommonResponseCase
 
-
+http_all_method = [
+    'get', 'head', 'post', 'put',
+    'delete', 'connect', 'options',
+    'trace', 'patch']
 ResponseType = tuple[typing.Any, int, tuple[tuple[str, str]]]
 
 restapi_version: str = ''
+
+
+class MethodViewMixin:
+    def options(self):
+        all_mtd = inspect.getmembers(self, predicate=inspect.ismethod)
+        http_mtd = [z[0] for z in all_mtd if z[0] in http_all_method]  # z[1] is method itself
+
+        return CommonResponseCase.http_ok.create_response(
+            header=(
+                ('Allow', ', '.join(http_mtd)),
+            ))
 
 
 # Make request form

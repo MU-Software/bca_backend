@@ -5,7 +5,6 @@ import inspect
 import typing
 
 import app.common.utils as utils
-from app.api.response_case import CommonResponseCase
 
 http_all_method = [
     'get', 'head', 'post', 'put',
@@ -75,6 +74,9 @@ class Response:
             header=header+self.header,
             data=self.data | data,  # Dict union@Python 3.9
             message=resp_message)
+
+
+from app.api.response_case import CommonResponseCase
 
 
 class MethodViewMixin:

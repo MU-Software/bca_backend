@@ -16,17 +16,6 @@ ResponseType = tuple[typing.Any, int, tuple[tuple[str, str]]]
 restapi_version: str = ''
 
 
-class MethodViewMixin:
-    def options(self):
-        all_mtd = inspect.getmembers(self, predicate=inspect.ismethod)
-        http_mtd = [z[0] for z in all_mtd if z[0] in http_all_method]  # z[1] is method itself
-
-        return CommonResponseCase.http_ok.create_response(
-            header=(
-                ('Allow', ', '.join(http_mtd)),
-            ))
-
-
 # Make request form
 def create_response(
         success: bool = True,
@@ -86,6 +75,17 @@ class Response:
             header=header+self.header,
             data=self.data | data,  # Dict union@Python 3.9
             message=resp_message)
+
+
+class MethodViewMixin:
+    def options(self):
+        all_mtd = inspect.getmembers(self, predicate=inspect.ismethod)
+        http_mtd = [z[0] for z in all_mtd if z[0] in http_all_method]  # z[1] is method itself
+
+        return CommonResponseCase.http_ok.create_response(
+            header=(
+                ('Allow', ', '.join(http_mtd)),
+            ))
 
 
 resource_routes: dict = {}

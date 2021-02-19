@@ -59,3 +59,6 @@ class CommonResponseCase(api.ResponseCaseCollector):
     http_not_found = api.Response(
         code=404, success=False,
         public_sub_code='http.not_found')
+    http_ok = api.Response(
+        code=200, success=True,
+        public_sub_code='http.ok')

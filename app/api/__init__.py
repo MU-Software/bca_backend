@@ -76,7 +76,7 @@ class Response:
             message=resp_message)
 
 
-from app.api.response_case import CommonResponseCase
+from app.api.response_case import CommonResponseCase  # noqa
 
 
 class MethodViewMixin:
@@ -108,7 +108,8 @@ def init_app(app: flask.Flask):
     global restapi_version
     restapi_version = app.config.get('RESTAPI_VERSION')
 
-    flask_cors.CORS(app, resources={'*': {'origins': 'https://protoco.cc'}})
+    app.url_map.strict_slashes = False
+    flask_cors.CORS(app)
 
     import app.api.request_handler as req_handler  # noqa
     req_handler.register_request_handler(app)

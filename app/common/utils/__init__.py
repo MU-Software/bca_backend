@@ -19,6 +19,8 @@ char_printable     += string.punctuation  # noqa
 char_urlsafe: str = string.ascii_letters + string.digits
 char_urlsafe     += '-_'  # noqa
 
+char_useridsafe: str = string.ascii_letters + string.digits
+
 
 def normalize(s: str) -> str:
     return unicodedata.normalize('NFC', s)
@@ -66,6 +68,19 @@ def is_urlsafe(s: str) -> bool:
         if c not in char_urlsafe:
             return False
     return True
+
+
+def is_useridsafe(s: str) -> str:
+    if 4 > len(s):
+        return 'TOO_SHORT'
+    if len(s) > 48:
+        return 'TOO_LONG'
+
+    for c in s:
+        if c not in char_useridsafe:
+            return 'FORBIDDEN_CHAR'
+
+    return ''
 
 
 def is_passwordsafe(s: str,

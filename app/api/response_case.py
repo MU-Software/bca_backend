@@ -44,6 +44,11 @@ class CommonResponseCase(api.ResponseCaseCollector):
         code=400, success=False,
         public_sub_code='request.body.omitted',
         data={'lacks': []})
+    body_bad_semantics = api.Response(
+        # This will be responsed when validation of user-sent body data is failed
+        code=422, success=False,
+        public_sub_code='request.body.bad_semantics',
+        data={'bad_semantics': ('<FIELD>', '<REASON>')})
 
     header_invalid = api.Response(
         code=400, success=False,

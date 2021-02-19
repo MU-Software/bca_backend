@@ -37,7 +37,7 @@ class AccountResponseCase(api.ResponseCaseCollector):
         # When user-wanted nick/id/email address can be used because no one isn't using them
         code=200, success=False,
         public_sub_code='user.safe_to_use')
-    user_already_used = api.Response(  # When there is a user that has  user-wanted nick/id/email
+    user_already_used = api.Response(  # When there is a user that has user-wanted nick/id/email
         code=401, success=False,
         public_sub_code='user.already_used',
         data={'duplicate': []})

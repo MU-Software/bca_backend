@@ -43,11 +43,25 @@ class SignUpRoute(flask.views.MethodView, api.MethodViewMixin):
         if 'User-Agent' not in flask.request.headers:
             return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
 
+        # Normalize all user inputs, including password
+        for k, v in new_user_req.items():
+            new_user_req[k] = utils.normalize(v)
+
+        if not utils.is_email(new_user_req['email']):
+            return CommonResponseCase.body_bad_semantics.create_response(
+                data={'bad_semantics': (('email', 'WRONG'),)})
+        if reason := utils.is_useridsafe(new_user_req['id']):
+            return CommonResponseCase.body_bad_semantics.create_response(
+                data={'bad_semantics': (('id', reason),)})
+        if reason := utils.is_passwordsafe(new_user_req['pw']):
+            return CommonResponseCase.body_bad_semantics.create_response(
+                data={'bad_semantics': (('pw', reason),)})
+
         new_user = user.User()
         new_user.email = new_user_req['email']
         new_user.id = new_user_req['id']
         new_user.nickname = new_user_req['nick']
-        new_user.description = None if not new_user_req.get('description', '') else new_user_req['description']
+        new_user.description = new_user_req.get('description', None)
         new_user.password = argon2.hash(new_user_req['pw'])
         new_user.pw_changed_at = sql.func.now()
         new_user.last_login_date = sql.func.now()

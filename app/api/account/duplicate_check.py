@@ -34,7 +34,7 @@ class AccountDuplicateCheckRoute(flask.views.MethodView, api.MethodViewMixin):
         }
         check_result = list()
         try:
-            for field_name, field_value in dupcheck_req:
+            for field_name, field_value in dupcheck_req.items():
                 if user_module.User.query.filter(field_column_map[field_name] == field_value).first():
                     check_result.append(field_name)
 

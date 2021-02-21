@@ -93,7 +93,7 @@ def is_passwordsafe(s: str,
     #   'TOO_SHORT': Password is too short.
     #   'NEED_MORE_CHAR_TYPE': Password must have more char type.
     #   'FORBIDDEN_CHAR': Password has forbidden char type.
-    if len(s) <= min_len:
+    if len(s) < min_len:
         return 'TOO_SHORT'
     if max_len < len(s):
         return 'TOO_LONG'

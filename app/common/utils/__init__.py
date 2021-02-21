@@ -260,7 +260,7 @@ def request_body(required_fields: list[str], optional_fields: list[str] = []) ->
             return [z for z in required_fields if z not in req_body]
 
         # Remove every field not in required and optional fields
-        req_body = {k: req_body[k] for k in required_fields + optional_fields}
+        req_body = {k: req_body[k] for k in req_body if k in required_fields + optional_fields}
 
         return req_body
     except Exception:

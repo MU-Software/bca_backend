@@ -49,13 +49,13 @@ class SignUpRoute(flask.views.MethodView, api.MethodViewMixin):
 
         if not utils.is_email(new_user_req['email']):
             return CommonResponseCase.body_bad_semantics.create_response(
-                data={'bad_semantics': (('email', 'WRONG'),)})
+                data={'bad_semantics': ({'email': 'WRONG'},)})
         if reason := utils.is_useridsafe(new_user_req['id']):
             return CommonResponseCase.body_bad_semantics.create_response(
-                data={'bad_semantics': (('id', reason),)})
+                data={'bad_semantics': ({'id': reason},)})
         if reason := utils.is_passwordsafe(new_user_req['pw']):
             return CommonResponseCase.body_bad_semantics.create_response(
-                data={'bad_semantics': (('pw', reason),)})
+                data={'bad_semantics': ({'pw': reason},)})
 
         new_user = user.User()
         new_user.email = new_user_req['email']

@@ -27,6 +27,8 @@ class AccountDuplicateCheckRoute(flask.views.MethodView, api.MethodViewMixin):
         elif type(dupcheck_req) != dict:
             return CommonResponseCase.body_invalid.create_response()
 
+        dupcheck_req: dict = {k: db.func.lower(utils.normalize(dupcheck_req[k])) for k in dupcheck_req}
+
         field_column_map = {
             'email': user_module.User.email,
             'id': user_module.User.id,

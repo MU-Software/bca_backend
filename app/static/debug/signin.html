@@ -115,8 +115,8 @@
         text-align: left;
       }
     </style>
-    <script type="text/javascript" src="/debug/src/json-viewer.js"></script>
-    <link rel="stylesheet" type="text/css" href="/debug/src/json-viewer.css">
+    <script type="text/javascript" src="/api/debug/src/json-viewer.js"></script>
+    <link rel="stylesheet" type="text/css" href="/api/debug/src/json-viewer.css">
     <script>
       function formToJson(formID){
         var formElement = document.getElementById(formID),
@@ -179,6 +179,28 @@
         xhr.send(postBody);
       }
 
+      function simpleGetRequest(url, baseID, targetJsonViewer) {
+        var resultPre = document.getElementById(baseID + '_request_result_pre');
+        var xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          var isSuccess = ''
+          if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
+            isSuccess = 'SUCCESS!'
+          } else {
+            isSuccess = 'FAILED!'
+          }
+          try {
+            targetJsonViewer.showJSON(JSON.parse(xhr.response))
+          } catch (e) {}
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString()
+          resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
+        }
+
+        xhr.open('GET', url);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send();
+      }
+
       var signupJsonViewer = new JSONViewer();
       var loginJsonViewer = new JSONViewer();
       var signoutJsonViewer = new JSONViewer();
@@ -192,7 +214,7 @@
       <section class="container">
         <aside class="item">
           <h3>회원가입</h3>
-          <form id="signup_form" action="/dev/account/signup" method="POST">
+          <form id="signup_form" action="/api/dev/account/signup" method="POST">
             <label for="signup_email">이메일</label>
             <input
               id="signup_email"
@@ -250,7 +272,7 @@
 
         <aside class="item">
           <h3>로그인</h3>
-          <form id="login_form" action="/dev/account/signin" method="post" >
+          <form id="login_form" action="/api/dev/account/signin" method="post" >
             <label for="login_username">이메일 또는 사용자 아이디</label>
             <input
               id="login_username"
@@ -283,7 +305,7 @@
 
         <aside class="item">
           <h3>Access 토큰 갱신</h3>
-          <button id="access_token_refresh_btn" onclick="simplePostRequest('/dev/account/refresh', 'access_token_refresh', accessRefreshJsonViewer, ''); return false;">토큰 갱신!</button>
+          <button id="access_token_refresh_btn" onclick="simplePostRequest('/api/dev/account/refresh', 'access_token_refresh', accessRefreshJsonViewer, ''); return false;">토큰 갱신!</button>
 
           <h5>Request Result(JSON)</h5>
           <div id="access_token_refresh_request_result_json"></div>
@@ -301,7 +323,7 @@
 
         <aside class="item">
           <h3>로그아웃</h3>
-          <button id="signout_btn" onclick="simplePostRequest('/dev/account/signout', 'signout', signoutJsonViewer, JSON.stringify({'signout': true})); return false;" >로그아웃</button>
+          <button id="signout_btn" onclick="simplePostRequest('/api/dev/account/signout', 'signout', signoutJsonViewer, JSON.stringify({'signout': true})); return false;" >로그아웃</button>
 
           <h5>Request Result(JSON)</h5>
           <div id="signout_request_result_json"></div>
@@ -315,7 +337,7 @@
 
         <aside class="item">
           <h3>토큰 상태 확인</h3>
-          <button id="token_stat_btn" onclick="simplePostRequest('/dev/account/tokeninfo', 'token_stat', tokenCheckJsonViewer, ''); return false;">토큰 데이터 얻기!</button>
+          <button id="token_stat_btn" onclick="simpleGetRequest('/api/dev/account/tokeninfo', 'token_stat', tokenCheckJsonViewer); return false;">토큰 데이터 얻기!</button>
 
           <h5>Request Result(JSON)</h5>
           <div id="token_stat_request_result_json"></div>

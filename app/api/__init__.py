@@ -2,6 +2,7 @@ import dataclasses
 import flask
 import flask_cors
 import inspect
+import os
 import typing
 
 import app.common.utils as utils
@@ -12,7 +13,11 @@ http_all_method = [
     'trace', 'patch']
 ResponseType = tuple[typing.Any, int, tuple[tuple[str, str]]]
 
-restapi_version: str = ''
+# I had to get these values from env,
+# because We can initialize these values from flask config only on app context,
+# and some modules already got these values before initialization.
+restapi_version: str = os.environ.get('RESTAPI_VERSION')
+server_name: str = os.environ.get('SERVER_NAME')
 
 
 # Make request form

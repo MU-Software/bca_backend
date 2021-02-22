@@ -274,7 +274,7 @@ def create_login_cookie(user_data: user_module.User,
         name='refresh_token',
         data=refresh_token_jwt,
         domain=flask.current_app.config.get('SERVER_NAME'),
-        path=f'/{refresh_token.api_ver}/account',
+        path=f'/api/{refresh_token.api_ver}/account',
         expires=utils.cookie_datetime(refresh_token.exp),
         secure=not flask.current_app.config.get('DEBUG', False))
     access_token_cookie = utils.cookie_creator(

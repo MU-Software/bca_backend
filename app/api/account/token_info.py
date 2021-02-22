@@ -17,33 +17,38 @@ class TokenInfoRoute(flask.views.MethodView, api.MethodViewMixin):
         }
         result_header = []
 
-        refresh_token_cookie = flask.request.cookies.get('refresh_token', '')
-        access_token_cookie = flask.request.cookies.get('access_token', '')
+        refresh_token_request_cookie = flask.request.cookies.get('refresh_token', '')
+        access_token_request_cookie = flask.request.cookies.get('access_token', '')
+
+        refresh_token_remover_cookie = utils.delete_cookie(
+                                            'refresh_token',
+                                            f'/api/{api.restapi_version}/account',
+                                            api.server_name)
+        access_token_remover_cookie = utils.delete_cookie('access_token', '/', api.server_name)
+        refresh_token_remover_header = ('Set-Cookie', refresh_token_remover_cookie)
+        access_token_remover_header = ('Set-Cookie', access_token_remover_cookie)
 
         try:
-            if refresh_token_cookie:
+            if refresh_token_request_cookie:
                 refresh_token = jwt_module.RefreshToken.from_token(
-                                    refresh_token_cookie,
+                                    refresh_token_request_cookie,
                                     flask.current_app.config.get('SECRET_KEY'))
-                result_dict['RefreshToken'] = {
-                    'exp': refresh_token.exp
-                }
-        except Exception:
-            result_header.append(('Set-Cookie', utils.delete_cookie('refresh_token')))
+                result_dict['RefreshToken'] = {'exp': refresh_token.exp}
 
-        if result_dict['RefreshToken'] is not None:
-            try:
-                if access_token_cookie:
-                    access_token = jwt_module.AccessToken.from_token(
-                                        access_token_cookie,
-                                        flask.current_app.config.get('SECRET_KEY'))
-                    result_dict['AccessToken'] = {
-                        'exp': access_token.exp
-                    }
-            except Exception:
-                result_header.append(('Set-Cookie', utils.delete_cookie('access_token')))
-        else:
-            result_header.append(('Set-Cookie', utils.delete_cookie('refresh_token')))
+                if access_token_request_cookie:
+                    try:
+                        access_token = jwt_module.AccessToken.from_token(
+                                            access_token_request_cookie,
+                                            flask.current_app.config.get('SECRET_KEY'))
+                        result_dict['AccessToken'] = {'exp': access_token.exp}
+                    except Exception:
+                        result_header.append(access_token_remover_header)
+            else:
+                result_header.append(refresh_token_remover_header)
+                result_header.append(access_token_remover_header)
+        except Exception:
+            result_header.append(refresh_token_remover_header)
+            result_header.append(access_token_remover_header)
 
         return api.create_response(
             code=200, success=True,

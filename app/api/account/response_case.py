@@ -3,14 +3,14 @@ import app.common.utils as utils
 
 header_collection: dict[str, tuple[str, str]] = {
     'delete_refresh_token': (
-        ('Set-Cookie', utils.delete_cookie('refresh_token', f'/{api.restapi_version}/account')),
+        ('Set-Cookie', utils.delete_cookie('refresh_token', f'/api/{api.restapi_version}/account', api.server_name)),
     ),
     'delete_access_token': (
-        ('Set-Cookie', utils.delete_cookie('access_token')),
+        ('Set-Cookie', utils.delete_cookie('access_token', api.server_name)),
     ),
     'delete_all_tokens': (
-        ('Set-Cookie', utils.delete_cookie('refresh_token', f'/{api.restapi_version}/account')),
-        ('Set-Cookie', utils.delete_cookie('access_token')),
+        ('Set-Cookie', utils.delete_cookie('refresh_token', f'/api/{api.restapi_version}/account', api.server_name)),
+        ('Set-Cookie', utils.delete_cookie('access_token', api.server_name)),
     ),
 }
 

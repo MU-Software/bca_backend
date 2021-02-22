@@ -229,11 +229,12 @@ def user_cookie(data: str, secure: bool = True) -> str:
     )
 
 
-def delete_cookie(name: str, path: str = '/') -> str:
+def delete_cookie(name: str, path: str = '/', domain: str = '',
+                  secure: bool = True, samesite: str = 'strict', httponly: bool = True) -> str:
     return cookie_creator(
-        name, '', path=path,
+        name, 'DUMMY', path=path, domain=domain,
+        secure=secure, samesite=samesite, httponly=httponly,
         expires='Thu, 01 Jan 1970 00:00:00 GMT',
-        secure=False
     )
 
 

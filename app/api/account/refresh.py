@@ -43,6 +43,7 @@ class AccessTokenIssueRoute(flask.views.MethodView, api.MethodViewMixin):
         access_token_cookie = utils.cookie_creator(
             name='access_token',
             data=access_token_jwt,
+            domain=api.server_name,
             path='/',
             expires=utils.cookie_datetime(access_token.exp),
             secure=not flask.current_app.config.get('DEBUG', False))

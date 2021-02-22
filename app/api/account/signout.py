@@ -26,6 +26,14 @@ class SignOutRoute(flask.views.MethodView, api.MethodViewMixin):
                 data={'lacks': ['signout']}
             )
 
+        refresh_token_remover_cookie = utils.delete_cookie(
+                                            'refresh_token',
+                                            f'/api/{api.restapi_version}/account',
+                                            api.server_name)
+        access_token_remover_cookie = utils.delete_cookie('access_token', '/', api.server_name)
+        refresh_token_remover_header = ('Set-Cookie', refresh_token_remover_cookie)
+        access_token_remover_header = ('Set-Cookie', access_token_remover_cookie)
+
         # TODO: Revoke access token by setting jti to redis DB
         refresh_token_cookie = flask.request.cookies.get('refresh_token', '')
         if refresh_token_cookie:
@@ -44,18 +52,10 @@ class SignOutRoute(flask.views.MethodView, api.MethodViewMixin):
             except Exception:
                 print('Raised error while removing token from DB')
 
-            return api.create_response(
-                code=200, success=True,
-                message='Goodbye!',
-                header=(
-                    ('Set-Cookie', utils.delete_cookie('refresh_token', f'/{api.restapi_version}/account')),
-                    ('Set-Cookie', utils.delete_cookie('access_token')),
-                ))
+            return AccountResponseCase.user_signed_out.create_response(
+                header=(refresh_token_remover_header, access_token_remover_header),
+                data={'OK': 'Goodbye!'})
 
-        return api.create_response(
-            code=200, success=True,
-            message='User already signed-out',
-            header=(
-                ('Set-Cookie', utils.delete_cookie('refresh_token', f'/{api.restapi_version}/account')),
-                ('Set-Cookie', utils.delete_cookie('access_token')),
-            ))
+        return AccountResponseCase.user_signed_out.create_response(
+            header=(refresh_token_remover_header, access_token_remover_header),
+            data={'Warning': 'User already signed-out'})

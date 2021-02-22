@@ -89,7 +89,7 @@ class SignUpRoute(flask.views.MethodView, api.MethodViewMixin):
             try:
                 err_diag = db_module.IntegrityCaser(err)
                 if err_diag[0] == 'FAILED_UNIQUE':
-                    return AccountResponseCase.user_already_used.create_response(data={'duplicate': err_diag[1]})
+                    return AccountResponseCase.user_already_used.create_response(data={'duplicate': dict(err_diag[1])})
                 else:
                     raise err
             except Exception:

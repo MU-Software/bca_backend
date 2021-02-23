@@ -183,10 +183,11 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
     ip_addr = db.Column(db.String, nullable=False)
 
     # Backref
-    usertable = db.relationship('User',
-                                primaryjoin=user == user_module.User.uuid,
-                                backref=db.backref('refresh_tokens',
-                                                   order_by='RefreshToken.modified_at.desc()'))
+    usertable: user_module.User = db.relationship(
+                                    'User',
+                                    primaryjoin=user == user_module.User.uuid,
+                                    backref=db.backref('refresh_tokens',
+                                                       order_by='RefreshToken.modified_at.desc()'))
 
     user_agent = db.Column(db.String, nullable=False)
     # Token data for sending notification on specific client device.

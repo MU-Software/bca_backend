@@ -33,7 +33,13 @@ class TokenInfoRoute(flask.views.MethodView, api.MethodViewMixin):
                 refresh_token = jwt_module.RefreshToken.from_token(
                                     refresh_token_request_cookie,
                                     flask.current_app.config.get('SECRET_KEY'))
-                result_dict['RefreshToken'] = {'exp': refresh_token.exp}
+                result_dict['RefreshToken'] = {
+                    'exp': refresh_token.exp,
+                    'userUUID': refresh_token.user,
+                    'username': refresh_token.usertable.id,
+                    'nickname': refresh_token.usertable.nickname,
+                    'profileImageURL': refresh_token.usertable.profile_image,
+                }
 
                 if access_token_request_cookie:
                     try:

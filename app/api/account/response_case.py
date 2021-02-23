@@ -1,16 +1,28 @@
 import app.api as api
 import app.common.utils as utils
 
+refresh_token_remover_cookie = utils.delete_cookie(
+                                    name='refresh_token',
+                                    path=f'/api/{api.restapi_version}/account',
+                                    domain=api.server_name if api.restapi_version != 'dev' else None,
+                                    samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                    secure=True)
+access_token_remover_cookie = utils.delete_cookie(
+                                    name='access_token',
+                                    path='/',
+                                    domain=api.server_name if api.restapi_version != 'dev' else None,
+                                    samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                    secure=True)
 header_collection: dict[str, tuple[str, str]] = {
     'delete_refresh_token': (
-        ('Set-Cookie', utils.delete_cookie('refresh_token', f'/api/{api.restapi_version}/account', api.server_name)),
+        ('Set-Cookie', refresh_token_remover_cookie),
     ),
     'delete_access_token': (
-        ('Set-Cookie', utils.delete_cookie('access_token', api.server_name)),
+        ('Set-Cookie', access_token_remover_cookie),
     ),
     'delete_all_tokens': (
-        ('Set-Cookie', utils.delete_cookie('refresh_token', f'/api/{api.restapi_version}/account', api.server_name)),
-        ('Set-Cookie', utils.delete_cookie('access_token', api.server_name)),
+        ('Set-Cookie', refresh_token_remover_cookie),
+        ('Set-Cookie', access_token_remover_cookie),
     ),
 }
 

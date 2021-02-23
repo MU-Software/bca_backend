@@ -21,10 +21,17 @@ class TokenInfoRoute(flask.views.MethodView, api.MethodViewMixin):
         access_token_request_cookie = flask.request.cookies.get('access_token', '')
 
         refresh_token_remover_cookie = utils.delete_cookie(
-                                            'refresh_token',
-                                            f'/api/{api.restapi_version}/account',
-                                            api.server_name)
-        access_token_remover_cookie = utils.delete_cookie('access_token', '/', api.server_name)
+                                            name='refresh_token',
+                                            path=f'/api/{api.restapi_version}/account',
+                                            domain=api.server_name if api.restapi_version != 'dev' else None,
+                                            samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                            secure=True)
+        access_token_remover_cookie = utils.delete_cookie(
+                                            name='access_token',
+                                            path='/',
+                                            domain=api.server_name if api.restapi_version != 'dev' else None,
+                                            samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                            secure=True)
         refresh_token_remover_header = ('Set-Cookie', refresh_token_remover_cookie)
         access_token_remover_header = ('Set-Cookie', access_token_remover_cookie)
 
@@ -52,7 +59,8 @@ class TokenInfoRoute(flask.views.MethodView, api.MethodViewMixin):
             else:
                 result_header.append(refresh_token_remover_header)
                 result_header.append(access_token_remover_header)
-        except Exception:
+        except Exception as err:
+            print(utils.get_traceback_msg(err), flush=True)
             result_header.append(refresh_token_remover_header)
             result_header.append(access_token_remover_header)
 

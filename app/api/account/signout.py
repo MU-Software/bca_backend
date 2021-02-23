@@ -27,10 +27,17 @@ class SignOutRoute(flask.views.MethodView, api.MethodViewMixin):
             )
 
         refresh_token_remover_cookie = utils.delete_cookie(
-                                            'refresh_token',
-                                            f'/api/{api.restapi_version}/account',
-                                            api.server_name)
-        access_token_remover_cookie = utils.delete_cookie('access_token', '/', api.server_name)
+                                            name='refresh_token',
+                                            path=f'/api/{api.restapi_version}/account',
+                                            domain=api.server_name if api.restapi_version != 'dev' else None,
+                                            samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                            secure=True)
+        access_token_remover_cookie = utils.delete_cookie(
+                                            name='access_token',
+                                            path='/',
+                                            domain=api.server_name if api.restapi_version != 'dev' else None,
+                                            samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                            secure=True)
         refresh_token_remover_header = ('Set-Cookie', refresh_token_remover_cookie)
         access_token_remover_header = ('Set-Cookie', access_token_remover_cookie)
 

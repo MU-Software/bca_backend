@@ -112,9 +112,17 @@ if flask.current_app.config.get('RESTAPI_VERSION') == 'dev':
 def init_app(app: flask.Flask):
     global restapi_version
     restapi_version = app.config.get('RESTAPI_VERSION')
-
     app.url_map.strict_slashes = False
-    flask_cors.CORS(app)
+
+    allowed_origins: list = [f'https://{app.config.get("SERVER_NAME")}']
+    if restapi_version == 'dev':
+        allowed_origins.append('http://localhost:3000')
+
+    flask_cors.CORS(app, resources={
+        r'*': {
+            'origins': allowed_origins,
+            'supports_credentials': True,
+        }})
 
     import app.api.request_handler as req_handler  # noqa
     req_handler.register_request_handler(app)

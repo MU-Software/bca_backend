@@ -270,20 +270,23 @@ def create_login_cookie(user_data: user_module.User,
         'exp': access_token.exp,
     }
 
+    restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
     refresh_token_cookie = utils.cookie_creator(
         name='refresh_token',
         data=refresh_token_jwt,
-        domain=flask.current_app.config.get('SERVER_NAME'),
+        domain=flask.current_app.config.get('SERVER_NAME') if restapi_version == 'dev' else None,
         path=f'/api/{refresh_token.api_ver}/account',
         expires=utils.cookie_datetime(refresh_token.exp),
-        secure=not flask.current_app.config.get('DEBUG', False))
+        samesite='None' if restapi_version == 'dev' else 'strict',
+        secure=True)
     access_token_cookie = utils.cookie_creator(
         name='access_token',
         data=access_token_jwt,
-        domain=flask.current_app.config.get('SERVER_NAME'),
+        domain=flask.current_app.config.get('SERVER_NAME') if restapi_version == 'dev' else None,
         path='/',
         expires=utils.cookie_datetime(access_token.exp),
-        secure=not flask.current_app.config.get('DEBUG', False))
+        samesite='None' if restapi_version == 'dev' else 'strict',
+        secure=True)
 
     return refresh_token_cookie, access_token_cookie, refresh_token_data, access_token_data
 

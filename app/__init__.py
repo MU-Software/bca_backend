@@ -1,6 +1,7 @@
 import flask
 import flask.views
 import os
+import werkzeug.middleware.proxy_fix as proxy_fix
 
 import app.config as config
 
@@ -12,6 +13,9 @@ def create_app():
 
     environment = os.environ.get('FLASK_ENV', 'production')
     app.config.from_object(config.config_by_name[environment])
+
+    if app.config.get('SERVER_IS_ON_PROXY'):
+        app.wsgi_app = proxy_fix.ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     with app.app_context():
         import app.database as db

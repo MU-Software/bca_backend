@@ -5,6 +5,7 @@ import secrets
 class Config:
     DEBUG = False
     TESTING = False
+    SERVER_IS_ON_PROXY = bool(os.environ.get('SERVER_IS_ON_PROXY', False))
 
     JSON_AS_ASCII = False
     PROJECT_NAME = os.environ.get('PROJECT_NAME')

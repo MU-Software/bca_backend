@@ -37,38 +37,13 @@ def register_request_handler(app: flask.Flask):
 
     @app.errorhandler(404)
     def handle_404(exception: werkzeug.exceptions.HTTPException):
-        response = exception.get_response()
-        result_body, result_code, result_header = CommonResponseCase.http_not_found.create_response()
-        response.body = result_body
-        response.code = result_code
-        for header in result_header:
-            response.headers.add(*header)
-        response.content_type = 'application/json'
-        return response
+        return CommonResponseCase.http_not_found.create_response()
 
     @app.errorhandler(405)
     def handle_405(exception: werkzeug.exceptions.HTTPException):
-        response = exception.get_response()
-        result_body, result_code, result_header = CommonResponseCase.http_mtd_forbidden.create_response()
-        response.body = result_body
-        response.code = result_code
-        for header in result_header:
-            response.headers.add(*header)
-        response.content_type = 'application/json'
-        return response
+        return CommonResponseCase.http_mtd_forbidden.create_response()
 
     @app.errorhandler(Exception)
     def handle_exception(exception: werkzeug.exceptions.HTTPException):
-        response = exception.get_response()
-        result_body, result_code, result_header = CommonResponseCase.server_error.create_response()
-        # result_body['code'] = response.code
-        # result_code = response.code
-
-        response.body = result_body
-        response.code = result_code
-        for header in result_header:
-            response.headers.add(*header)
-        response.content_type = 'application/json'
-        return response
-
-
+        # response = exception.get_response()  # TODO: Log this
+        return CommonResponseCase.server_error.create_response()

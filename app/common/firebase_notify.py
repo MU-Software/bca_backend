@@ -4,7 +4,8 @@ from firebase_admin import messaging
 import flask
 
 
-def firebase_send_notify(title: str, body: str, data: dict = None, topic: str = 'all'):
+def firebase_send_notify(title: str, body: str, data: dict = None,
+                         topic: str = 'all', target_token: str = None):
     cred = credentials.Certificate(flask.current_app.config.get('FIREBASE_CERTIFICATE'))
     default_app = firebase_admin.initialize_app(cred)  # noqa
 
@@ -32,7 +33,7 @@ def firebase_send_notify(title: str, body: str, data: dict = None, topic: str = 
         fcm_options=None,
 
         topic=topic,
-        # token=registration_token,
+        token=target_token,
         # condition=None,
     )
 

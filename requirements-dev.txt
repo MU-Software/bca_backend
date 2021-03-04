@@ -9,6 +9,7 @@ redis
 lxml
 pyyaml
 user-agents
+firebase-admin
 
 flask
 flask-cors

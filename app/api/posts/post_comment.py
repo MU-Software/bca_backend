@@ -10,6 +10,8 @@ import app.database.user as user_module
 import app.database.jwt as jwt_module
 import app.database.board as board_module
 
+import app.common.firebase_notify as firebase_notify
+
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
@@ -222,7 +224,7 @@ class PostCommentRoute(flask.views.MethodView, api.MethodViewMixin):
 
             if ('parent_id' in comment_req) and (type(comment_req.get('parent_id')) == int):
                 last_comment_query = last_comment_query.filter(
-                    board_module.Comment.parent_id == comment_req['parent_id'])
+                    board_module.Comment.parent_id == int(comment_req['parent_id']))
             last_comment_query = last_comment_query.order_by(sql.desc(board_module.Comment.order))
             comment_order = last_comment_query.first().order + 1
         except Exception:
@@ -234,10 +236,29 @@ class PostCommentRoute(flask.views.MethodView, api.MethodViewMixin):
             new_comment.post = target_post
             new_comment.body = comment_req['body']
             new_comment.order = comment_order
+            new_comment.parent_id = int(comment_req['parent_id']) if 'parent_id' in comment_req else None
             new_comment.private = bool(comment_req.get('private', False))
 
             db_module.db.session.add(new_comment)
             db_module.db.session.commit()
+
+            # Send notification to related users
+            target_user_clients: list[jwt_module.RefreshToken]
+            target_user_clients = list(jwt_module.RefreshToken.query
+                                       .filter(jwt_module.RefreshToken.user == target_post.user_id)
+                                       .filter(jwt_module.RefreshToken.client_token is not None).all())
+            if 'parent_id' in comment_req:
+                target_user_clients += list(jwt_module.RefreshToken.query
+                                            .join(board_module.Comment,
+                                                  jwt_module.RefreshToken.user == board_module.Comment.user_id)
+                                            .filter(board_module.Comment.uuid == int(comment_req['parent_id']))
+                                            .filter(jwt_module.RefreshToken.client_token is not None).all())
+
+            for target_user_client in target_user_clients:
+                firebase_notify.firebase_send_notify(
+                    title=f'새 {"대" if "parent_id" in comment_req else ""}댓글이 달렸습니다!',
+                    body=f'{target_user.nickname}: {new_comment.body}',
+                    topic='게시글 알림', target_token=target_user_client.client_token)
 
             return PostResponseCase.post_created.create_response(data={'id': new_comment.uuid})
         except Exception:

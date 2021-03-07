@@ -13,6 +13,7 @@ class Config:
     SERVER_NAME = os.environ.get('SERVER_NAME', None)
 
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+    DEVELOPMENT_KEY = os.environ.get('DEVELOPMENT_KEY')
 
     RESTAPI_VERSION = os.environ.get('RESTAPI_VERSION')
 

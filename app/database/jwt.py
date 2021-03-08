@@ -117,9 +117,9 @@ class AccessToken(TokenBase):
         new_token = super().create_token(key, algorithm=algorithm, exp_reset=exp_reset)
 
         # If new token safely issued, then remove revoked history
-        redis_result = redis_db.hget('refresh_revoke', str(self.jti))
+        redis_result = redis_db.get('refresh_revoke='+str(self.jti))
         if redis_result and redis_result == b'revoked':
-            redis_db.hdel('refresh_revoke', str(self.jti))
+            redis_db.delete('refresh_revoke=' + str(self.jti))
 
         return new_token
 
@@ -128,9 +128,9 @@ class AccessToken(TokenBase):
         parsed_token = super().from_token(jwt_input, key, algorithm)
 
         # Check if token's revoked
-        redis_result = redis_db.hget('refresh_revoke', str(parsed_token.jti))
+        redis_result = redis_db.get('refresh_revoke=' + str(parsed_token.jti))
         if redis_result and redis_result == b'revoked':
-            redis_db.hdel('refresh_revoke', str(parsed_token.jti))
+            redis_db.delete('refresh_revoke=' + str(parsed_token.jti))
             raise jwt.exceptions.InvalidTokenError('This token was revoked')
 
         return parsed_token

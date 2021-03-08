@@ -75,8 +75,8 @@ class AccountDeactivationRoute(flask.views.MethodView, api.MethodViewMixin):
             for token in target_tokens:
                 db.session.delete(token)
 
-                # TODO: hset can set multiple at once, so use that method instead
-                redis_db.hset('refresh_revoke', str(token.jti), 'revoked')
+                # TODO: set can set multiple at once, so use that method instead
+                redis_db.set('refresh_revoke=' + str(token.jti), 'revoked', datetime.timedelta(weeks=2))
 
             target_user.deactivated_at = datetime.datetime.utcnow().replace(tz=utils.UTC)
             target_user.why_deactivated = 'ACCOUNT_LOCKED::USER_SELF_LOCKED'

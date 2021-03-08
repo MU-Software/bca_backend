@@ -1,3 +1,4 @@
+import datetime
 import flask
 import flask_admin as fadmin
 
@@ -16,7 +17,7 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
         user_result = user.User.query.all()
         token_result = jwt_module.RefreshToken.query.all()
         revoked_dict = dict()
-        for k, v in redis_db.hgetall('refresh_revoke').items():
+        for k, v in redis_db.scan_iter(pattern='refresh_revoke=*'):
             revoked_dict[k.decode()] = v.decode()
 
         return self.render(
@@ -49,8 +50,8 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
                     message='User or JWT that mapped to that user not found')
 
             for target in query_result:
-                # TODO: hset can set multiple at once, so use that method instead
-                redis_db.hset('refresh_revoke', str(target.jti), 'revoked')
+                # TODO: set can set multiple at once, so use that method instead
+                redis_db.set('refresh_revoke=' + str(target.jti), 'revoked', datetime.timedelta(weeks=2))
         else:
             query_result = jwt_module.RefreshToken.query\
                                 .filter(jwt_module.RefreshToken.jti == int(revoke_req['target_jti']))\
@@ -61,7 +62,7 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
                     success=False,
                     message='RefreshToken that has such JTI not found')
 
-            redis_db.hset('refresh_revoke', str(revoke_req['target_jti']), 'revoked')
+            redis_db.set('refresh_revoke=' + str(revoke_req['target_jti']), 'revoked', datetime.timedelta(weeks=2))
 
         return api.create_response(
             code=301, success=True,

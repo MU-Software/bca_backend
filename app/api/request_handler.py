@@ -13,7 +13,7 @@ def before_first_request():
 def before_request():
     if flask.current_app.config.get('RESTAPI_VERSION') == 'dev':
         if flask.request.headers.get('X-Development-Key') != flask.current_app.config.get('DEVELOPMENT_KEY'):
-            return AccountResponseCase.user_signed_out.create_response
+            return AccountResponseCase.user_signed_out.create_response()
 
 
 def after_request(response):

@@ -14,6 +14,7 @@ class Config:
 
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
     DEVELOPMENT_KEY = os.environ.get('DEVELOPMENT_KEY')
+    LOCAL_DEV_CLIENT_PORT = None
 
     RESTAPI_VERSION = os.environ.get('RESTAPI_VERSION')
 
@@ -45,6 +46,8 @@ class DevelopmentConfig(Config):
     REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
     REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
     REDIS_DB = int(os.environ.get('REDIS_DB', 0))
+
+    LOCAL_DEV_CLIENT_PORT = int(os.environ.get('LOCAL_DEV_CLIENT_PORT', None))
 
 
 class TestingConfig(Config):

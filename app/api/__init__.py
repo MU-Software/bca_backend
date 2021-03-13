@@ -115,8 +115,9 @@ def init_app(app: flask.Flask):
     app.url_map.strict_slashes = False
 
     allowed_origins: list = [f'https://{app.config.get("SERVER_NAME")}']
-    if restapi_version == 'dev':
-        allowed_origins.append('http://localhost:3000')
+    local_client_port = app.config.get('LOCAL_DEV_CLIENT_PORT')
+    if restapi_version == 'dev' and local_client_port:
+        allowed_origins.append(f'http://localhost:{local_client_port}')
 
     flask_cors.CORS(app, resources={
         r'*': {

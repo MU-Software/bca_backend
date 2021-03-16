@@ -1,6 +1,8 @@
 import dataclasses
 import flask
 import flask_cors
+import flask_limiter
+import flask_limiter.util
 import inspect
 import os
 import typing
@@ -18,6 +20,8 @@ ResponseType = tuple[typing.Any, int, tuple[tuple[str, str]]]
 # and some modules already got these values before initialization.
 restapi_version: str = os.environ.get('RESTAPI_VERSION')
 server_name: str = os.environ.get('SERVER_NAME')
+
+rate_limiter: flask_limiter.Limiter = None
 
 
 # Make request form
@@ -124,6 +128,9 @@ def init_app(app: flask.Flask):
             'origins': allowed_origins,
             'supports_credentials': True,
         }})
+
+    global rate_limiter
+    rate_limiter = flask_limiter.Limiter(app, key_func=flask_limiter.util.get_remote_address)
 
     import app.api.request_handler as req_handler  # noqa
     req_handler.register_request_handler(app)

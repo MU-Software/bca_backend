@@ -64,6 +64,11 @@ class SignInRoute(flask.views.MethodView, api.MethodViewMixin):
 
         return AccountResponseCase.user_signed_in.create_response(
                     data={
+                        'email': account_result.email,
+                        'id': account_result.id,
+                        'nick': account_result.nickname,
+                        'uuid': account_result.uuid,
+
                         'RefreshToken': refresh_token_data,
                         'AccessToken': access_token_data,
                     }, header=(

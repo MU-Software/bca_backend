@@ -64,7 +64,8 @@ class AccountResponseCase(api.ResponseCaseCollector):
         public_sub_code='user.sign_in')
     user_wrong_password = api.Response(
         code=401, success=False,
-        public_sub_code='user.wrong_password')
+        public_sub_code='user.wrong_password',
+        data={'left_chance': 0})
     user_locked = api.Response(
         code=401, success=False,
         public_sub_code='user.locked',

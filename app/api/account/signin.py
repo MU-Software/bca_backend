@@ -37,11 +37,13 @@ class SignInRoute(flask.views.MethodView, api.MethodViewMixin):
         if account_result is False:
             if reason == 'ACCOUNT_NOT_FOUND':
                 return AccountResponseCase.user_not_found.create_response()
-            elif reason == 'WRONG_PASSWORD':
-                return AccountResponseCase.user_wrong_password.create_response()
+            elif reason.startswith('WRONG_PASSWORD'):
+                return AccountResponseCase.user_wrong_password.create_response(
+                    data={'left_chance': int(reason.replace('WRONG_PASSWORD::', ''))}
+                )
             elif 'TOO_MUCH_LOGIN_FAIL' in reason:
                 return AccountResponseCase.user_locked.create_response(
-                            data={'reason': 'Too many login attempts'})
+                            data={'reason': 'TOO_MUCH_LOGIN_FAIL'})
             elif reason.startswith('ACCOUNT_LOCKED'):
                 return AccountResponseCase.user_locked.create_response(
                             data={'reason': reason.replace('ACCOUNT_LOCKED::', '')})

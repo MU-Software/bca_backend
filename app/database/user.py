@@ -138,6 +138,9 @@ class User(db_module.DefaultModelMixin, db.Model):
                 if self.login_fail_count >= 5:
                     self.locked_at = db.func.now()
                     self.why_locked = 'TOO_MUCH_LOGIN_FAIL'
+                    reason = f'ACCOUNT_LOCKED::TOO_MUCH_LOGIN_FAIL'
+                else:
+                    reason += f'::{5 - self.login_fail_count}'
             try:
                 db.session.commit()
                 return False, reason

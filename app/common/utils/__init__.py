@@ -190,7 +190,7 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ---------- Cookie Handler ----------
 def cookie_creator(
-        name: str, data: str, path='/', domain: str = None,
+        name: str, data: str, path: str = '/', domain: str = None,
         expires: str = None, maxage: int = None, never_expire: bool = False,
         samesite: str = 'strict', secure: bool = True, httponly: bool = True) -> str:
     if not any([expires, maxage, never_expire]):

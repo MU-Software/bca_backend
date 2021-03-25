@@ -192,7 +192,7 @@ class PostCommentRoute(flask.views.MethodView, api.MethodViewMixin):
 
             target_user = jwt_module.get_account_data()
             if target_user is None:
-                return AccountResponseCase.user_not_logged_in.create_response()
+                return AccountResponseCase.user_not_signed_in.create_response()
             elif not target_user:
                 return AccountResponseCase.access_token_invalid.create_response()
         except Exception:

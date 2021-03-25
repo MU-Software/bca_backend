@@ -32,7 +32,7 @@ class AccountResponseCase(api.ResponseCaseCollector):
     user_not_found = api.Response(
         code=404, success=False,
         public_sub_code='user.not_found')
-    user_not_logged_in = api.Response(
+    user_not_signed_in = api.Response(
         code=401, success=False,
         public_sub_code='user.not_signed_in',
         header=header_collection['delete_all_tokens'])

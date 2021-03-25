@@ -32,7 +32,7 @@ class AccountDeactivationRoute(flask.views.MethodView, api.MethodViewMixin):
         refresh_token_cookie = flask.request.cookies.get('refresh_token', type=str, default='')
 
         if not refresh_token_cookie:
-            return AccountResponseCase.user_not_logged_in.create_response()
+            return AccountResponseCase.user_not_signed_in.create_response()
 
         try:
             refresh_token: jwt_module.RefreshToken = jwt_module.RefreshToken.from_token(
@@ -47,7 +47,7 @@ class AccountDeactivationRoute(flask.views.MethodView, api.MethodViewMixin):
             # Unexpected thing happened while decoding login data. please re-login
             return AccountResponseCase.refresh_token_invalid.create_response()
         if not refresh_token:
-            return AccountResponseCase.user_not_logged_in.create_response()
+            return AccountResponseCase.user_not_signed_in.create_response()
 
         target_user: user_module.User = refresh_token.usertable
         if target_user.email != delcheck_req['email']:

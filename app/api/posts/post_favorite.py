@@ -70,7 +70,7 @@ class PostFavoriteRoute(flask.views.MethodView, api.MethodViewMixin):
         if not access_token:
             if access_token is False:
                 return AccountResponseCase.access_token_expired.create_response()
-            return AccountResponseCase.user_not_logged_in.create_response()
+            return AccountResponseCase.user_not_signed_in.create_response()
 
         try:
             new_favorite_relation = board_module.PostFavorite()
@@ -112,7 +112,7 @@ class PostFavoriteRoute(flask.views.MethodView, api.MethodViewMixin):
         if not access_token:
             if access_token is False:
                 return AccountResponseCase.access_token_expired.create_response()
-            return AccountResponseCase.user_not_logged_in.create_response()
+            return AccountResponseCase.user_not_signed_in.create_response()
 
         # Now, we need to query PostFavorite relation table
         target_favorite_rel: board_module.PostLike = None

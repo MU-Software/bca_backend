@@ -88,7 +88,9 @@ class Response:
 from app.api.response_case import CommonResponseCase  # noqa
 
 
-class MethodViewMixin:
+class MethodViewMixin(utils.AutoRegisterClass):
+    _base_class = 'MethodViewMixin'
+
     def options(self):
         all_mtd = inspect.getmembers(self, predicate=inspect.ismethod)
         http_mtd = [z[0] for z in all_mtd if z[0] in http_all_method]  # z[1] is method itself

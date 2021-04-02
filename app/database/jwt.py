@@ -2,6 +2,7 @@ import datetime
 import flask
 import inspect
 import jwt
+import jwt.exceptions
 import redis
 import typing
 
@@ -218,7 +219,7 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
                                          .filter(RefreshToken.exp > datetime.datetime.utcnow())\
                                          .first()
         if not target_token:
-            raise Exception('RefreshToken not found on DB')
+            raise jwt.exceptions.InvalidTokenError('RefreshToken not found on DB')
 
         if type(target_token.exp) == int:
             target_token.exp = datetime.datetime.fromtimestamp(target_token.exp, utils.UTC)
@@ -233,7 +234,7 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
         if target_token.user == int(token_data.get('user', '')) and db_token_exp == cookie_token_exp:
             return target_token
         else:
-            raise Exception('RefreshToken is not valid')
+            raise jwt.exceptions.InvalidTokenError('RefreshToken information mismatch')
 
     def create_token(self, key: str, algorithm: str = 'HS256', exp_reset: bool = True) -> str:
         self.exp = datetime.datetime.utcnow().replace(microsecond=0)  # Drop microseconds

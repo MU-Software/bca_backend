@@ -13,8 +13,8 @@ import app.database.user as user_module
 db = db_module.db
 redis_db: redis.StrictRedis = db_module.redis_db
 
-# Refresh token will expire after 30 days
-refresh_token_valid_duration: datetime.timedelta = datetime.timedelta(days=30)
+# Refresh token will expire after 61 days
+refresh_token_valid_duration: datetime.timedelta = datetime.timedelta(days=61)
 # Access token will expire after 1 hour
 access_token_valid_duration: datetime.timedelta = datetime.timedelta(hours=1)
 

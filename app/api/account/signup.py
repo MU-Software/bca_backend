@@ -6,7 +6,7 @@ import secrets
 import sqlalchemy as sql
 import jwt
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.common.utils as utils
 import app.common.mailgun as mailgun
 import app.database as db_module
@@ -23,7 +23,7 @@ db = db_module.db
 signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(days=7)
 
 
-class SignUpRoute(flask.views.MethodView, api.MethodViewMixin):
+class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     def post(self):
         new_user_req = utils.request_body(
@@ -124,8 +124,8 @@ class SignUpRoute(flask.views.MethodView, api.MethodViewMixin):
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
-        response_type: api.Response = AccountResponseCase.user_signed_up
-        if mail_sent:
+        response_type: api_class.Response = AccountResponseCase.user_signed_up
+        if not mail_sent:
             response_type = AccountResponseCase.user_signed_up_but_mail_error
 
         return response_type.create_response(

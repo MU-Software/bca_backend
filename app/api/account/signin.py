@@ -1,8 +1,8 @@
 import flask
 import flask.views
 
-import app.api as api
 import app.common.utils as utils
+import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
@@ -14,7 +14,7 @@ from app.api.account.response_case import AccountResponseCase
 db = db_module.db
 
 
-class SignInRoute(flask.views.MethodView, api.MethodViewMixin):
+class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     def post(self):
         # { 'id' : '', 'pw' : '' }

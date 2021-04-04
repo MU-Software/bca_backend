@@ -1,10 +1,10 @@
 import flask.views
 
-import app.api as api
+import app.api.helper_class as api_class
 from app.api.response_case import CommonResponseCase
 
 
-class PingRoute(flask.views.MethodView, api.MethodViewMixin):
+class PingRoute(flask.views.MethodView, api_class.MethodViewMixin):
     def get(self):
         return CommonResponseCase.ping_success.create_response()
 

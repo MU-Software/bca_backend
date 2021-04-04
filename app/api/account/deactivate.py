@@ -3,7 +3,7 @@ import flask
 import flask.views
 import jwt
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
@@ -16,7 +16,6 @@ db = db_module.db
 redis_db = db_module.redis_db
 
 
-class AccountDeactivationRoute(flask.views.MethodView, api.MethodViewMixin):
     def post(self):
         # Deactivate user itselfs
         delcheck_req = utils.request_body(['email', 'password'])
@@ -28,6 +27,7 @@ class AccountDeactivationRoute(flask.views.MethodView, api.MethodViewMixin):
             return CommonResponseCase.body_empty.create_response()
         elif type(delcheck_req) != dict:
             return CommonResponseCase.body_invalid.create_response()
+class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         refresh_token_cookie = flask.request.cookies.get('refresh_token', type=str, default='')
 

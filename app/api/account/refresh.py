@@ -2,7 +2,7 @@ import flask
 import flask.views
 import jwt
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
@@ -13,7 +13,7 @@ db = db_module.db
 redis_db = db_module.redis_db
 
 
-class AccessTokenIssueRoute(flask.views.MethodView, api.MethodViewMixin):
+class AccessTokenIssueRoute(flask.views.MethodView, api_class.MethodViewMixin):
     def post(self):
         refresh_token_cookie = flask.request.cookies.get('refresh_token', type=str, default='')
 
@@ -42,10 +42,10 @@ class AccessTokenIssueRoute(flask.views.MethodView, api.MethodViewMixin):
         access_token_cookie = utils.cookie_creator(
             name='access_token',
             data=access_token_jwt,
-            domain=flask.current_app.config.get('SERVER_NAME') if api.restapi_version != 'dev' else None,
+            domain=flask.current_app.config.get('SERVER_NAME') if api_class.restapi_version != 'dev' else None,
             path='/',
             expires=utils.cookie_datetime(access_token.exp),
-            samesite='None' if api.restapi_version == 'dev' else 'strict',
+            samesite='None' if api_class.restapi_version == 'dev' else 'strict',
             secure=True)
 
         return AccountResponseCase.access_token_refreshed.create_response(

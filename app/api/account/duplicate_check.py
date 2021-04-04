@@ -1,18 +1,12 @@
 import flask
 import flask.views
 
-import app.api as api
-import app.common.utils as utils
-import app.database as db_module
+import app.api.helper_class as api_class
 import app.database.user as user_module
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
 
-db = db_module.db
-
-
-class AccountDuplicateCheckRoute(flask.views.MethodView, api.MethodViewMixin):
     def post(self):
         # Check duplicates about posted request data
         dupcheck_req = utils.request_body(
@@ -30,6 +24,7 @@ class AccountDuplicateCheckRoute(flask.views.MethodView, api.MethodViewMixin):
         dupcheck_req: dict = {k: db.func.lower(utils.normalize(dupcheck_req[k])) if k != 'nickname'
                               else dupcheck_req[k] for k in dupcheck_req}
 
+class AccountDuplicateCheckRoute(flask.views.MethodView, api_class.MethodViewMixin):
         field_column_map = {
             'email': user_module.User.email,
             'id': user_module.User.id,

@@ -246,30 +246,6 @@ def cookie_datetime(dt_time: datetime.datetime) -> str:
     return dt_time.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
 
-# ---------- Request body parser Function ----------
-def request_body(required_fields: list[str], optional_fields: list[str] = []) -> typing.Union[dict, list, None]:
-    '''
-    return type
-        - dict: parsed request body
-        - list: required but not contained fields
-        - None: parse error
-    '''
-    try:
-        req_body = flask.request.get_json(force=True)
-        req_body = {k: v for k, v in req_body.items() if k and v}  # basic filter for empty keys and values
-
-        # Check if all required fields are in
-        if (not all([z in req_body.keys() for z in required_fields])):
-            return [z for z in required_fields if z not in req_body]
-
-        # Remove every field not in required and optional fields
-        req_body = {k: req_body[k] for k in req_body if k in required_fields + optional_fields}
-
-        return req_body
-    except Exception:
-        return None
-
-
 # ---------- Helper Function ----------
 def isiterable(in_obj):
     try:
@@ -322,20 +298,25 @@ class Struct:
         self.__dict__.update(entries)
 
 
-class AutoRegisterClass:
-    _subclasses = list()
+# ---------- Request body parser Function ----------
+def request_body(required_fields: list[str], optional_fields: list[str] = []) -> typing.Union[dict, list, None]:
+    '''
+    return type
+        - dict: parsed request body
+        - list: required but not contained fields
+        - None: parse error
+    '''
+    try:
+        req_body = flask.request.get_json(force=True)
+        req_body = {k: v for k, v in req_body.items() if k and v}  # basic filter for empty keys and values
 
-    @classmethod
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
+        # Check if all required fields are in
+        if (not all([z in req_body.keys() for z in required_fields])):
+            return [z for z in required_fields if z not in req_body]
 
-        if not hasattr(cls, '_base_class') or not cls._base_class:
-            raise ValueError('_base_class must be set')
+        # Remove every field not in required and optional fields
+        req_body = {k: req_body[k] for k in req_body if k in required_fields + optional_fields}
 
-        # Attributes will be shared with parent classes while inheriting them,
-        # so _subclasses attribute must be cleared when new class is created.
-        cls._subclasses = list()
-
-        for base_cls in cls.__bases__:
-            if base_cls.__name__ == cls._base_class:
-                base_cls._subclasses.append(cls)
+        return req_body
+    except Exception:
+        return None

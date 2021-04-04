@@ -2,7 +2,7 @@ import datetime
 import flask
 import flask.views
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
@@ -55,7 +55,7 @@ def has_post_permission(
     return False
 
 
-class PostRoute(flask.views.MethodView, api.MethodViewMixin):
+class PostRoute(flask.views.MethodView, api_class.MethodViewMixin):
     # Return post content & comments
     def get(self, post_id: str):
         if not post_id:

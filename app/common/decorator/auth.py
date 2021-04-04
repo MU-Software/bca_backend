@@ -6,22 +6,22 @@
 #     - fkwargs: Dictionary that will be send to route methods like get or post, such as post_id.
 # - All test functions must return...
 #     - Boolean
-#     - None | api.ResponseType
+#     - None | api_class.ResponseType
 import flask
 import jwt
 import typing
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.database.jwt as jwt_module
 
 
-def test_deco(perm_args: typing.Any, fkwargs: dict) -> tuple[bool, api.ResponseType]:
+def test_deco(perm_args: typing.Any, fkwargs: dict) -> tuple[bool, api_class.ResponseType]:
     print(perm_args)
     print(fkwargs)
     return True, None
 
 
-def need_signed_out(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple[bool, api.ResponseType]:
+def need_signed_out(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple[bool, api_class.ResponseType]:
     refresh_token_cookie = flask.request.cookies.get('refresh_token', '')
     access_token_cookie = flask.request.cookies.get('access_token', '')
 
@@ -30,7 +30,7 @@ def need_signed_out(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple
     if not flask.request.path.startswith(f'/{flask.current_app.config.get("RESTAPI_VERSION")}/account'):
         # But, if this function used in non-/account-route, then always return 401,
         # because we can't check whether we are signed-in or not.
-        return False, api.create_response(
+        return False, api_class.create_response(
                 code=401, success=False,
                 message='Cannot determine whether user signed in or not')
 
@@ -39,7 +39,7 @@ def need_signed_out(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple
             jwt_module.RefreshToken.from_token(
                 refresh_token_cookie,
                 flask.current_app.config.get('SECRET_KEY'))
-            return False, api.create_response(
+            return False, api_class.create_response(
                 code=401, success=False,
                 message='User must be signed out')
         except Exception:
@@ -48,10 +48,10 @@ def need_signed_out(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple
         return True, None
 
 
-def need_access_token(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple[bool, api.ResponseType]:
+def need_access_token(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple[bool, api_class.ResponseType]:
     access_token_cookie = flask.request.cookies.get('access_token', '')
     if not access_token_cookie:
-        return False, api.create_response(
+        return False, api_class.create_response(
             code=401, success=False,
             message='No access token given')
 
@@ -60,19 +60,19 @@ def need_access_token(perm_args: typing.Any = None, fkwargs: dict = None) -> tup
             access_token_cookie,
             flask.current_app.config.get('SECRET_KEY'))
     except jwt.exceptions.ExpiredSignatureError:
-        return False, api.create_response(
+        return False, api_class.create_response(
             code=401, success=False,
             message='Access Token is too old')
     except jwt.exceptions.InvalidTokenError as err:
         if err.message == 'This token was revoked':
-            return False, api.create_response(
+            return False, api_class.create_response(
                 code=401, success=False,
                 message='Access Token is revoked')
-        return False, api.create_response(
+        return False, api_class.create_response(
             code=401, success=False,
             message='Access Token is invalid')
     except Exception:
-        return False, api.create_response(
+        return False, api_class.create_response(
             code=401, success=False,
             message='Access Token is invalid-e')
 

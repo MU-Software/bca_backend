@@ -1,7 +1,7 @@
 import flask
 import flask.views
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
@@ -12,7 +12,6 @@ from app.api.account.response_case import AccountResponseCase
 db = db_module.db
 
 
-class SignOutRoute(flask.views.MethodView, api.MethodViewMixin):
     def post(self):
         # Check POST data so that someone "accidently" make user signing out
         try:
@@ -25,18 +24,21 @@ class SignOutRoute(flask.views.MethodView, api.MethodViewMixin):
             return CommonResponseCase.body_required_omitted.create_response(
                 data={'lacks': ['signout']}
             )
+class SignOutRoute(flask.views.MethodView, api_class.MethodViewMixin):
+        server_name = flask.current_app.config.get('SERVER_NAME')
+        restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
 
         refresh_token_remover_cookie = utils.delete_cookie(
                                             name='refresh_token',
-                                            path=f'/api/{api.restapi_version}/account',
-                                            domain=api.server_name if api.restapi_version != 'dev' else None,
-                                            samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                            path=f'/api/{restapi_version}/account',
+                                            domain=server_name if restapi_version != 'dev' else None,
+                                            samesite='None' if restapi_version == 'dev' else 'strict',
                                             secure=True)
         access_token_remover_cookie = utils.delete_cookie(
                                             name='access_token',
                                             path='/',
-                                            domain=api.server_name if api.restapi_version != 'dev' else None,
-                                            samesite='None' if api.restapi_version == 'dev' else 'strict',
+                                            domain=server_name if restapi_version != 'dev' else None,
+                                            samesite='None' if restapi_version == 'dev' else 'strict',
                                             secure=True)
         refresh_token_remover_header = ('Set-Cookie', refresh_token_remover_cookie)
         access_token_remover_header = ('Set-Cookie', access_token_remover_cookie)

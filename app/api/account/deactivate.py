@@ -85,21 +85,4 @@ class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
-        field_column_map = {
-            'email': user_module.User.email,
-            'id': user_module.User.id,
-            'nickname': user_module.User.nickname,
-        }
-        check_result = list()
-        try:
-            for field_name, field_value in delcheck_req:
-                if user_module.User.query.filter(field_column_map[field_name] == field_value).first():
-                    check_result.append(field_name)
-
-            if check_result:
-                return AccountResponseCase.user_already_used.create_response(data={
-                    'duplicate': check_result
-                })
-            return AccountResponseCase.user_safe_to_use.create_response()
-        except Exception:
-            return CommonResponseCase.server_error.create_response()
+        return AccountResponseCase.user_deactivate_success.create_response()

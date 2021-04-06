@@ -1,5 +1,4 @@
 import flask
-import flask.views
 import os
 import werkzeug.middleware.proxy_fix as proxy_fix
 
@@ -26,6 +25,9 @@ def create_app():
 
         import app.admin as admin
         admin.init_app(app)
+
+        import app.common.cli_tools as cli_tools
+        cli_tools.init_app(app)
 
     return app
 

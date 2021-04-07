@@ -1,7 +1,6 @@
 import flask
 import flask.views
 
-import app.common.utils as utils
 import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.user as user
@@ -16,23 +15,25 @@ db = db_module.db
 
 class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
-    def post(self):
-        # { 'id' : '', 'pw' : '' }
-        login_req = utils.request_body(required_fields=['id', 'pw'])
-
-        if type(login_req) == list:
-            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': login_req})
-        elif login_req is None:
-            return CommonResponseCase.body_invalid.create_response()
-        elif not login_req:
-            return CommonResponseCase.body_empty.create_response()
-        elif type(login_req) != dict:
-            return CommonResponseCase.body_invalid.create_response()
-
-        if 'User-Agent' not in flask.request.headers:
-            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
-
-        account_result, reason = user.User.try_login(login_req['id'], login_req['pw'])
+    @api_class.RequestHeader(
+        required_fields={'User-Agent': {'type': 'string', }, },
+        optional_fields={'X-Client-Token': {'type': 'string', }, })
+    @api_class.RequestBody(
+        required_fields={
+            'id': {'type': 'string', },
+            'pw': {'type': 'string', },
+        })
+    def post(self, req_header, req_body):
+        '''
+        description: Sign-in by email or id
+        responses:
+            - user_signed_in
+            - user_not_found
+            - user_wrong_password
+            - user_locked
+            - user_deactivated
+        '''
+        account_result, reason = user.User.try_login(req_body['id'], req_body['pw'])
 
         if account_result is False:
             if reason == 'ACCOUNT_NOT_FOUND':
@@ -59,8 +60,8 @@ class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
             refresh_token_data,\
             access_token_data = jwt_module.create_login_cookie(
                                             account_result,
-                                            flask.request.headers.get('User-Agent'),
-                                            flask.request.headers.get('Client-Token', None),
+                                            req_header.get('User-Agent'),
+                                            req_header.get('Client-Token', None),
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 

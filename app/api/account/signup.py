@@ -19,50 +19,53 @@ from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
 
-# SignUp confirmation email will expire after 7 days
-signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(days=7)
+# SignUp confirmation email will expire after 48 hours
+signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(hours=48)
 
 
 class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
-    def post(self):
-        new_user_req = utils.request_body(
-            required_fields=['id', 'pw', 'nick', 'email'],
-            optional_fields=['description']
-        )
-
-        if type(new_user_req) == list:
-            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': new_user_req})
-        elif new_user_req is None:
-            return CommonResponseCase.body_invalid.create_response()
-        elif not new_user_req:
-            return CommonResponseCase.body_empty.create_response()
-        elif type(new_user_req) != dict:
-            return CommonResponseCase.body_invalid.create_response()
-
-        if 'User-Agent' not in flask.request.headers:
-            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': 'User-Agent'})
-
+    @api_class.RequestHeader(
+        required_fields={'User-Agent': {'type': 'string', }, },
+        optional_fields={'X-Client-Token': {'type': 'string', }, })
+    @api_class.RequestBody(
+        required_fields={
+            'id': {'type': 'string', },
+            'pw': {'type': 'string', },
+            'nick': {'type': 'string', },
+            'email': {'type': 'string', },
+        },
+        optional_fields={'description': {'type': 'string'}, })
+    def post(self, req_header, req_body):
+        '''
+        description: Sign-up with Email
+        responses:
+            - user_signed_up
+            - user_signed_up_but_mail_error
+            - user_already_used
+            - body_bad_semantics
+            - server_error
+        '''
         # Normalize all user inputs, including password
-        for k, v in new_user_req.items():
-            new_user_req[k] = utils.normalize(v)
+        for k, v in req_body.items():
+            req_body[k] = utils.normalize(v)
 
-        if not utils.is_email(new_user_req['email']):
+        if not utils.is_email(req_body['email']):
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'email': 'WRONG'},)})
-        if reason := utils.is_useridsafe(new_user_req['id']):
+        if reason := utils.is_useridsafe(req_body['id']):
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'id': reason},)})
-        if reason := utils.is_passwordsafe(new_user_req['pw']):
+        if reason := utils.is_passwordsafe(req_body['pw']):
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'pw': reason},)})
 
         new_user = user.User()
-        new_user.email = new_user_req['email']
-        new_user.id = new_user_req['id']
-        new_user.nickname = new_user_req['nick']
-        new_user.description = new_user_req.get('description', None)
-        new_user.password = argon2.hash(new_user_req['pw'])
+        new_user.email = req_body['email']
+        new_user.id = req_body['id']
+        new_user.nickname = req_body['nick']
+        new_user.description = req_body.get('description', None)
+        new_user.password = argon2.hash(req_body['pw'])
         new_user.pw_changed_at = sql.func.now()
         new_user.last_login_date = sql.func.now()
         db.session.add(new_user)
@@ -99,7 +102,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             email_result = flask.render_template(
                 'email/email_verify.html',
-                domain_url=flask.current_app.config.get('SERVER_NAME', 'http://localhost:5000'),
+                domain_url=flask.current_app.config.get('SERVER_NAME'),
                 project_name=flask.current_app.config.get('PROJECT_NAME'),
                 user_nick=new_user.nickname,
                 email_key=email_token,
@@ -108,7 +111,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             mailgun.gmail_send_mail(
                 'musoftware@mudev.cc',
                 new_user.email,
-                'DEVCO에 오신 것을 환영합니다!',
+                f'{flask.current_app.config.get("PROJECT_NAME")}에 오신 것을 환영합니다!',
                 email_result)
             mail_sent = True
         except Exception:
@@ -119,8 +122,8 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             refresh_token_data,\
             access_token_data = jwt_module.create_login_cookie(
                                             new_user,
-                                            flask.request.headers.get('User-Agent'),
-                                            flask.request.headers.get('Client-Token', None),
+                                            req_header.get('User-Agent'),
+                                            req_header.get('Client-Token', None),
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 

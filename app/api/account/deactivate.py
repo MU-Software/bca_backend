@@ -16,18 +16,26 @@ db = db_module.db
 redis_db = db_module.redis_db
 
 
-    def post(self):
-        # Deactivate user itselfs
-        delcheck_req = utils.request_body(['email', 'password'])
-        if type(delcheck_req) == list:
-            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': delcheck_req})
-        elif delcheck_req is None:
-            return CommonResponseCase.body_invalid.create_response()
-        elif not delcheck_req:
-            return CommonResponseCase.body_empty.create_response()
-        elif type(delcheck_req) != dict:
-            return CommonResponseCase.body_invalid.create_response()
 class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin):
+    @api_class.RequestBody(
+        required_fields={
+            'email': {'type': 'string', },
+            'password': {'type': 'string', },
+        })
+    def post(self, req_body):
+        '''
+        description: Sign-in by email or id
+        responses:
+            - user_not_signed_in
+            - user_info_mismatch
+            - user_locked
+            - user_deactivated
+            - user_wrong_password
+            - refresh_token_expired
+            - refresh_token_invalid
+            - server_error
+        '''
+        # Self-deactivate account route
 
         refresh_token_cookie = flask.request.cookies.get('refresh_token', type=str, default='')
 
@@ -50,10 +58,10 @@ class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin
             return AccountResponseCase.user_not_signed_in.create_response()
 
         target_user: user_module.User = refresh_token.usertable
-        if target_user.email != delcheck_req['email']:
+        if target_user.email != req_body['email']:
             return AccountResponseCase.user_info_mismatch.create_response(
                         data={'fields': ['email']})
-        if not target_user.check_password(delcheck_req['password']):
+        if not target_user.check_password(req_body['password']):
             return AccountResponseCase.user_wrong_password.create_response()
 
         if target_user.locked_at:
@@ -70,7 +78,7 @@ class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin
                                 .all()
             if not target_tokens:
                 # No refresh token of target user don't make any sense,
-                # how user could get here although user don't have any valid refresh token?
+                # how could user get here although user don't have any valid refresh token?
                 return CommonResponseCase.server_error.create_response()
             for token in target_tokens:
                 db.session.delete(token)

@@ -1,3 +1,4 @@
+import datetime
 import flask
 import flask.views
 
@@ -6,25 +7,21 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 
-from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
+redis_db = db_module.redis_db
 
 
-    def post(self):
-        # Check POST data so that someone "accidently" make user signing out
-        try:
-            signout_req = flask.request.get_json(force=True)
-            signout_req = {k: v for k, v in signout_req.items() if v}
-        except Exception:
-            return CommonResponseCase.body_invalid.create_response()
-
-        if 'signout' not in signout_req:
-            return CommonResponseCase.body_required_omitted.create_response(
-                data={'lacks': ['signout']}
-            )
 class SignOutRoute(flask.views.MethodView, api_class.MethodViewMixin):
+    @api_class.RequestBody(
+        required_fields={'signout': {'type': 'string', }, })
+    def post(self, req_body):
+        '''
+        description: Sign-Out and expire user token
+        responses:
+            - user_signed_out
+        '''
         server_name = flask.current_app.config.get('SERVER_NAME')
         restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
 
@@ -60,6 +57,11 @@ class SignOutRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 db.session.commit()
             except Exception:
                 print('Raised error while removing token from DB')
+
+            try:
+                redis_db.set('refresh_revoke=' + str(revoke_target_jti), 'revoked', datetime.timedelta(weeks=2))
+            except Exception:
+                print('Raised error while removing token from REDIS')
 
             return AccountResponseCase.user_signed_out.create_response(
                 header=(refresh_token_remover_header, access_token_remover_header),

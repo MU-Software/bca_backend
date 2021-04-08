@@ -6,11 +6,18 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 
+from app.api.response_case import CommonResponseCase
+
 db = db_module.db
 
 
 class TokenInfoRoute(flask.views.MethodView, api_class.MethodViewMixin):
     def get(self):
+        '''
+        description: Get information in tokens. If refreshToken or accessToken is not valid, then remove them.
+        responses:
+            - http_ok
+        '''
         server_name = flask.current_app.config.get('SERVER_NAME')
         restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
 
@@ -67,7 +74,5 @@ class TokenInfoRoute(flask.views.MethodView, api_class.MethodViewMixin):
             result_header.append(refresh_token_remover_header)
             result_header.append(access_token_remover_header)
 
-        return api.create_response(
-            code=200, success=True,
-            message='',
-            data=result_dict, header=result_header)
+        return CommonResponseCase.http_ok.create_response(
+                    data=result_dict, header=result_header)

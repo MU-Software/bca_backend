@@ -73,11 +73,12 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             db.session.commit()
 
+            email_token_exp = datetime.datetime.utcnow().replace(tzinfo=utils.UTC) + signup_verify_mail_valid_duration
             # Send account verification & confirmation mail
             email_token = jwt.encode({
                 'api_ver': flask.current_app.config.get('RESTAPI_VERSION'),
                 'iss': flask.current_app.config.get('SERVER_NAME'),
-                'exp': datetime.datetime.utcnow().replace(tzinfo=utils.UTC) + signup_verify_mail_valid_duration,
+                'exp': email_token_exp,
                 'sub': 'Email Auth',
                 'jti':  secrets.randbits(64),
                 'user': new_user.uuid,
@@ -85,9 +86,14 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     'action': 'EMAIL_VERIFY'
                 },
             }, key=flask.current_app.config.get('SECRET_KEY'), algorithm='HS256')
-            new_user.email_secret = email_token
 
-            db.session.commit()
+            new_email_token: user.EmailToken = user.EmailToken()
+            new_email_token.user = new_user
+            new_email_token.action = 'EMAIL_VERIFY'
+            new_email_token.token = email_token
+            new_email_token.expired_at = email_token_exp
+
+            db.session.add(new_email_token)
         except Exception as err:
             try:
                 err_diag = db_module.IntegrityCaser(err)

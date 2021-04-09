@@ -1,56 +1,51 @@
+from app.api.account.response_case import AccountResponseCase
 import flask
 import flask.views
 import jwt
+import jwt.exceptions
 
-import app.api as api
+import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.user as user
 
 db = db_module.db
 
 
-class EmailActionRoute(flask.views.MethodView, api.MethodViewMixin):
+class EmailActionRoute(flask.views.MethodView, api_class.MethodViewMixin):
     def get(self, email_token: str):
+        '''
+        description: Do Email action, such as email address verification or finding password, etc.
+        responses:
+            - email_success
+            - email_token_not_given
+            - email_expired
+            - email_invalid
+            - email_not_found
+        '''
         if not email_token:
-            return api.create_response(
-                code=400, success=False,
-                message='Email token is not provided')
+            return AccountResponseCase.email_token_not_given.create_response()
 
         try:
             jwt_token = jwt.decode(email_token, key=flask.current_app.config.get('SECRET_KEY'), algorithms='HS256')
         except jwt.exceptions.ExpiredSignatureError:
-            return api.create_response(
-                code=400, success=False,
-                message='Your email has expired')
-        except jwt.exceptions.DecodeError as err:
-            import traceback
-            print(''.join(traceback.format_exception(etype=type(err), value=err, tb=err.__traceback__)))
-            return api.create_response(
-                code=400, success=False,
-                message='Your email is invalid-a')
+            # TODO: We need to delete this from DB, or at least, garbage collect this.
+            return AccountResponseCase.email_expired.create_response()
+        except jwt.exceptions.DecodeError:
+            return AccountResponseCase.email_invalid.create_response()
 
-        target_user: user.User = user.User.query.filter(user.User.uuid == jwt_token['user']).first()
-        if not target_user:
-            return api.create_response(
-                code=400, success=False,
-                message='Your email is invalid-b')
-
-        if target_user.email_secret != email_token:
-            return api.create_response(
-                code=400, success=False,
-                message='Your email is invalid-c')
+        target_token: user.EmailToken = user.EmailToken.query.filter(user.EmailToken.token == jwt_token).first()
+        if not target_token:
+            return AccountResponseCase.email_not_found.create_response()
+        if target_token.action != jwt_token['data']['action'] or target_token.user_id != jwt_token['user']:
+            return AccountResponseCase.email_invalid.create_response()
 
         # OK, now we can assumes that email is verified,
         # Do what token says.
-        if jwt_token['data']['action'] == 'EMAIL_VERIFY':
-            target_user.email_verified = True
-            target_user.email_secret = None
+        if target_token.action == 'EMAIL_VERIFY':
+            target_token.user.email_verified = True
+            db.session.delete(target_token)
             db.session.commit()
+            return AccountResponseCase.email_success.create_response()
 
-            return api.create_response(
-                code=200, success=True,
-                message='Your email is now verified')
-
-        return api.create_response(
-            code=400, success=False,
-            message='Your email is invalid-d')
+        return AccountResponseCase.email_invalid.create_response(
+                    message='Email has no action')

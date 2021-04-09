@@ -156,3 +156,18 @@ class User(db_module.DefaultModelMixin, db.Model):
         except Exception:
             db.session.rollback()
             return self, 'DB_ERROR'
+
+
+class EmailToken(db_module.DefaultModelMixin, db.Model):
+    __tablename__ = 'TB_EMAILTOKEN'
+    uuid = db.Column(db_module.PrimaryKeyType, db.Sequence('SQ_EmailToken_UUID'), primary_key=True)
+
+    user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    user: User = db.relationship('User',
+                                 primaryjoin=user_id == User.uuid,
+                                 backref=db.backref('email_tokens',
+                                                    order_by='EmailToken.created_at.desc()'))
+
+    action = db.Column(db.String, nullable=False)
+    token = db.Column(db.String, unique=True, nullable=False)
+    expired_at = db.Column(db.DateTime, nullable=False)

@@ -12,6 +12,8 @@ class Config:
     BACKEND_NAME = os.environ.get('BACKEND_NAME')
     SERVER_NAME = os.environ.get('SERVER_NAME', None)
 
+    # Referer is not a typo. See HTTP referer header.
+    REFERER_CHECK = os.environ.get('REFERER_CHECK', True) == 'false'
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
     DEVELOPMENT_KEY = os.environ.get('DEVELOPMENT_KEY')
     LOCAL_DEV_CLIENT_PORT = None
@@ -47,7 +49,8 @@ class DevelopmentConfig(Config):
     REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
     REDIS_DB = int(os.environ.get('REDIS_DB', 0))
 
-    LOCAL_DEV_CLIENT_PORT = int(os.environ.get('LOCAL_DEV_CLIENT_PORT', None))
+    LOCAL_DEV_CLIENT_PORT = int(os.environ.get('LOCAL_DEV_CLIENT_PORT'))\
+        if os.environ.get('LOCAL_DEV_CLIENT_PORT') else None
 
 
 class TestingConfig(Config):

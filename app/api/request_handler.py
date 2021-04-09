@@ -1,6 +1,7 @@
 import flask
 import werkzeug.exceptions
 
+import app.common.utils as utils
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
 
@@ -14,6 +15,10 @@ def before_request():
     if flask.current_app.config.get('RESTAPI_VERSION') == 'dev':
         if flask.request.headers.get('X-Development-Key') != flask.current_app.config.get('DEVELOPMENT_KEY'):
             return AccountResponseCase.user_signed_out.create_response()
+
+    if flask.current_app.config.get('REFERER_CHECK'):
+        if flask.request.headers.get('referer', '') != flask.current_app.config.get('SERVER_NAME'):
+            return CommonResponseCase.http_forbidden.create_response()
 
 
 def after_request(response):
@@ -49,4 +54,6 @@ def register_request_handler(app: flask.Flask):
     @app.errorhandler(Exception)
     def handle_exception(exception: werkzeug.exceptions.HTTPException):
         # response = exception.get_response()  # TODO: Log this
+        if flask.current_app.config.get('RESTAPI_VERSION', None) == 'dev':
+            print(utils.get_traceback_msg(exception))
         return CommonResponseCase.server_error.create_response()

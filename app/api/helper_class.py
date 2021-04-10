@@ -13,6 +13,32 @@ http_all_method = [
 ResponseType = tuple[typing.Any, int, tuple[tuple[str, str]]]
 
 
+def recursive_dict_to_openapi_obj(in_dict: dict):
+    type_def: dict[type, str] = {
+        str: 'string',
+        bool: 'boolean',
+        int: 'integer',
+        float: 'number',
+        list: 'array',
+        dict: 'object',
+    }
+
+    result_dict: dict = dict()
+    for k, v in in_dict.items():
+        result_dict[k] = {'type': type_def[type(v)], }
+        if v:
+            if type(v) == dict:
+                result_dict[k]['properties'] = recursive_dict_to_openapi_obj(v)
+            elif type(v) == list:
+                result_dict[k]['items'] = {'type': type_def[type(v[0])], }
+                if type(v[0]) == dict:
+                    result_dict[k]['properties'] = recursive_dict_to_openapi_obj(v[0])
+            else:
+                result_dict[k]['enum'] = [v, ]
+
+    return result_dict
+
+
 class AutoRegisterClass:
     _subclasses = list()
 
@@ -96,8 +122,8 @@ class Response:
             },
             'data': {
                 'type': 'object',
-                'enum': [self.data, ],
-            }
+                'properties': recursive_dict_to_openapi_obj(self.data)
+            },
         }
 
     def create_response(self,

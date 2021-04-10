@@ -1,11 +1,13 @@
 import datetime
-import flask
 import flask_admin as fadmin
 
 import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
+
+from app.api.response_case import CommonResponseCase
+from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
 redis_db = db_module.redis_db
@@ -27,26 +29,25 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
                     revoked_result=revoked_dict)
 
     @fadmin.expose('/', methods=('POST',))
-    def post(self):
-        try:
-            revoke_req = flask.request.get_json(force=True)
-            revoke_req = {k: v for k, v in revoke_req.items() if v}
-            if not ('user_uuid' in revoke_req or 'target_jti' in revoke_req):
-                raise Exception
-        except Exception:
-            return api_class.create_response(
-                code=400,
-                success=False,
-                message='Wrong request body data - JSON decode failed')
+    @api_class.RequestBody(
+        required_fields={},
+        optional_fields={
+            'user_uuid': {'type': 'integer', },
+            'target_jti': {'type': 'integer', },
+        })
+    def post(self, req_body: dict):
+        if not any(('user_uuid' in req_body), ('target_jti' in req_body)):
+            CommonResponseCase.body_required_omitted.create_response(
+                message='Need user_uuid or target_jti',
+                data={'lacks': ['user_uuid', 'target_jti']})
 
-        if 'user_uuid' in revoke_req:
+        if 'user_uuid' in req_body:
+            # How this goddamn query works?!
             query_result = jwt_module.RefreshToken.query\
                                 .join(jwt_module.RefreshToken.usertable, aliased=True)\
-                                .filter_by(uuid=int(revoke_req['user_uuid'])).all()
+                                .filter_by(uuid=int(req_body['user_uuid'])).all()
             if not query_result:
-                return api_class.create_response(
-                    code=404,
-                    success=False,
+                return AccountResponseCase.user_not_found.create_response(
                     message='User or JWT that mapped to that user not found')
 
             for target in query_result:
@@ -54,19 +55,16 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
                 redis_db.set('refresh_revoke=' + str(target.jti), 'revoked', datetime.timedelta(weeks=2))
         else:
             query_result = jwt_module.RefreshToken.query\
-                                .filter(jwt_module.RefreshToken.jti == int(revoke_req['target_jti']))\
+                                .filter(jwt_module.RefreshToken.jti == int(req_body['target_jti']))\
                                 .all()  # noqa
             if not query_result:
-                return api_class.create_response(
-                    code=404,
-                    success=False,
+                return AccountResponseCase.refresh_token_invalid(
                     message='RefreshToken that has such JTI not found')
 
-            redis_db.set('refresh_revoke=' + str(revoke_req['target_jti']), 'revoked', datetime.timedelta(weeks=2))
+            redis_db.set('refresh_revoke=' + str(req_body['target_jti']), 'revoked', datetime.timedelta(weeks=2))
 
-        return api_class.create_response(
-            code=301, success=True,
-            message='OK',
+        return CommonResponseCase.http_ok.create_response(
+            code=301,
             header=(
                 ('Location', '/admin/token-revoke'),
             ))

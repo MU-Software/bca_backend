@@ -108,6 +108,7 @@
       <form method="post" id='formRevokeUser'>
         <label for="user_uuid">Revoke시킬 유저 UUID</label>
         <input type="number" name="user_uuid" id="user_uuid" />
+        <input type="checkbox" name="do_delete" id="do_delete">토큰 삭제</input>
         <input
         type="submit"
         onclick="simpleFormPostRequest(document.getElementById('formRevokeUser')); return false;" />
@@ -117,6 +118,7 @@
       <form method="post" id='formRevokeJTI'>
         <label for="target_jti">Revoke시킬 JWT JTI</label>
         <input type="number" name="target_jti" id="target_jti" />
+        <input type="checkbox" name="do_delete" id="do_delete">토큰 삭제</input>
         <input
           type="submit"
           onclick="simpleFormPostRequest(document.getElementById('formRevokeJTI')); return false;" />

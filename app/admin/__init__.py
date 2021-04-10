@@ -13,6 +13,7 @@ def init_app(app: flask.Flask, add_model_to_view: bool = True):
         import app.database.board as board
 
         admin.add_view(fadmin_sqla.ModelView(user.User, db_module.db.session))
+        admin.add_view(fadmin_sqla.ModelView(user.EmailToken, db_module.db.session))
         admin.add_view(fadmin_sqla.ModelView(board.Board, db_module.db.session))
         admin.add_view(fadmin_sqla.ModelView(board.Post, db_module.db.session))
         admin.add_view(fadmin_sqla.ModelView(board.Comment, db_module.db.session))

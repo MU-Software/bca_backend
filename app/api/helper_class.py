@@ -83,11 +83,11 @@ class Response:
                 'enum': [self.success, ],
             },
             'code': {
-                'type': 'boolean',
+                'type': 'integer',
                 'enum': [self.code, ],
             },
             'sub_code': {
-                'type': 'boolean',
+                'type': 'string',
                 'enum': [self.public_sub_code, ],
             },
             'message': {

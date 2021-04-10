@@ -18,11 +18,19 @@ response_cases_cache: dict[str, api_class.Response] = dict()
 
 
 # FROST was the original name of this project.
+# "F"lask based
+# "R"ESTful api
+# "O"riented
+# "S"ource
+# "T"emplate
+# I know... It's ridiculous, I just wanted to name this as "FROST"...
 class FrostRoutePlugin(apispec.BasePlugin):
     def path_helper(self, path: str, operations: typing.OrderedDict, *, view, app: flask.Flask = None, **kwargs):
         app: flask.Flask = app or flask.current_app
         operation_result = dict()
         http_mtd: dict[str, typing.Any] = {k: v for k, v in view.__dict__.items() if k in api_class.http_all_method}
+
+        path_tag: str = [z for z in path.split('/') if z][1]
 
         path_params_data: list[dict] = list()
         # Add path parameters on doc
@@ -67,6 +75,10 @@ class FrostRoutePlugin(apispec.BasePlugin):
                 )
                 openapi_resp[resp_case_obj.code]['description'] += f'### {resp}: {resp_case_obj.description}  \n'
             document['responses'] = openapi_resp
+
+            if 'tags' not in document:
+                document['tags'] = list()
+            document['tags'].append(path_tag)
 
             if path_params_data:
                 if 'parameters' not in document:

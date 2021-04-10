@@ -45,7 +45,7 @@ class CommonResponseCase(api_class.ResponseCaseCollector):
         code=400, success=False,
         public_sub_code='request.body.empty')
     body_required_omitted = api_class.Response(
-        description='This will be responsed when some requirements are not given in user-sent body data/',
+        description='This will be responsed when some requirements are not given in user-sent body data.',
         code=400, success=False,
         public_sub_code='request.body.omitted',
         data={'lacks': []})

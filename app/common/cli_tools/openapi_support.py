@@ -23,7 +23,7 @@ response_cases_cache: dict[str, api_class.Response] = dict()
 # "O"riented
 # "S"ource
 # "T"emplate
-# I know... It's ridiculous, I just wanted to name this as "FROST"...
+# I know... It sucks, I just wanted to name this as "FROST"...
 class FrostRoutePlugin(apispec.BasePlugin):
     def path_helper(self, path: str, operations: typing.OrderedDict, *, view, app: flask.Flask = None, **kwargs):
         app: flask.Flask = app or flask.current_app

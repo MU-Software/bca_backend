@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import flask
 import functools
@@ -99,20 +100,32 @@ class Response:
             }
         }
 
-    def create_response(self, header: tuple[tuple[str]] = (), data: dict = {}) -> ResponseType:
-        # TODO: Parse YAML file and get response message using public_sub_code
-        resp_message = ''
+    def create_response(self,
+                        header: tuple[tuple[str]] = (),
+                        data: dict = {},
+                        message: typing.Optional[str] = None) -> ResponseType:
 
         resp_header = (tuple(header.items()) if type(header) == dict else header)
         resp_header += (tuple(self.header.items()) if type(self.header) == dict else self.header)
+        result_header = (
+            *header,
+            # We don't need to add Content-Type: application/json here
+            # because flask.jsonify will add it.
+            ('Server', flask.current_app.config.get('BACKEND_NAME', 'MUsoftware Backend')),
+        )
 
-        return create_response(
-            success=self.success,
-            code=self.code,
-            sub_code=self.public_sub_code,
-            header=resp_header,
-            data=self.data | data,  # Dict union@Python 3.9
-            message=resp_message)
+        # TODO: Parse YAML file and get response message using public_sub_code
+        resp_data = copy.deepcopy(data)
+        resp_data.update(data)
+        response_body = {
+            'success': self.success,
+            'code': self.code,
+            'sub_code': self.public_sub_code,
+            'message': message or self.message,
+            'data': resp_data
+        }
+
+        return (flask.jsonify(response_body), self.code, result_header)
 
 
 class ResponseCaseCollector(AutoRegisterClass):

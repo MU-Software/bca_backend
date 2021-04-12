@@ -16,7 +16,7 @@ redis_db = db_module.redis_db
 class SignOutRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @api_class.RequestBody(
         required_fields={'signout': {'type': 'string', }, })
-    def post(self, req_body):
+    def post(self, req_body: dict):
         '''
         description: Sign-Out and expire user token
         responses:
@@ -31,17 +31,9 @@ class SignOutRoute(flask.views.MethodView, api_class.MethodViewMixin):
                                             domain=server_name if restapi_version != 'dev' else None,
                                             samesite='None' if restapi_version == 'dev' else 'strict',
                                             secure=True)
-        access_token_remover_cookie = utils.delete_cookie(
-                                            name='access_token',
-                                            path='/',
-                                            domain=server_name if restapi_version != 'dev' else None,
-                                            samesite='None' if restapi_version == 'dev' else 'strict',
-                                            secure=True)
         refresh_token_remover_header = ('Set-Cookie', refresh_token_remover_cookie)
-        access_token_remover_header = ('Set-Cookie', access_token_remover_cookie)
 
-        # TODO: Revoke access token by setting jti to redis DB
-        refresh_token_cookie = flask.request.cookies.get('refresh_token', '')
+        refresh_token_cookie = flask.request.cookies.get('refresh_token', None)
         if refresh_token_cookie:
             try:
                 refresh_token = jwt_module.RefreshToken.from_token(
@@ -53,20 +45,20 @@ class SignOutRoute(flask.views.MethodView, api_class.MethodViewMixin):
             revoke_target_jti = refresh_token.jti
             print(f'Refresh token {revoke_target_jti} removed!')
             try:
+                redis_db.set('refresh_revoke=' + str(revoke_target_jti), 'revoked', datetime.timedelta(weeks=2))
+            except Exception:
+                print('Raised error while removing token from REDIS')
+
+            try:
                 db.session.delete(refresh_token)
                 db.session.commit()
             except Exception:
                 print('Raised error while removing token from DB')
 
-            try:
-                redis_db.set('refresh_revoke=' + str(revoke_target_jti), 'revoked', datetime.timedelta(weeks=2))
-            except Exception:
-                print('Raised error while removing token from REDIS')
-
             return AccountResponseCase.user_signed_out.create_response(
-                header=(refresh_token_remover_header, access_token_remover_header),
-                data={'OK': 'Goodbye!'})
+                header=refresh_token_remover_header,
+                message='Goodbye!')
 
         return AccountResponseCase.user_signed_out.create_response(
-            header=(refresh_token_remover_header, access_token_remover_header),
-            data={'Warning': 'User already signed-out'})
+            header=refresh_token_remover_header,
+            message='User already signed-out')

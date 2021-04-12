@@ -1,4 +1,5 @@
 import os
+import copy
 
 import app.api.helper_class as api_class
 import app.common.utils as utils
@@ -12,24 +13,19 @@ refresh_token_remover_cookie = utils.delete_cookie(
                                     domain=server_name if restapi_version != 'dev' else None,
                                     samesite='None' if restapi_version == 'dev' else 'strict',
                                     secure=True)
-access_token_remover_cookie = utils.delete_cookie(
-                                    name='access_token',
-                                    path='/',
-                                    domain=server_name if restapi_version != 'dev' else None,
-                                    samesite='None' if restapi_version == 'dev' else 'strict',
-                                    secure=True)
-header_collection: dict[str, tuple[str, str]] = {
-    'delete_refresh_token': (
-        ('Set-Cookie', refresh_token_remover_cookie),
-    ),
-    'delete_access_token': (
-        ('Set-Cookie', access_token_remover_cookie),
-    ),
-    'delete_all_tokens': (
-        ('Set-Cookie', refresh_token_remover_cookie),
-        ('Set-Cookie', access_token_remover_cookie),
-    ),
-}
+delete_refresh_token: tuple[str, str] = ('Set-Cookie', refresh_token_remover_cookie)
+
+user_auth_data_template: dict = {
+            'email': '', 'id': '',
+            'nick': '', 'uuid': 0,
+            'profileImageURL': '',
+
+            'refresh_token': {'exp': 'DATETIME', },
+            'access_token': {
+                'token': '',
+                'exp': 'DATETIME',
+            },
+        }
 
 
 class AccountResponseCase(api_class.ResponseCaseCollector):
@@ -42,13 +38,14 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='User is not signed in.',
         code=401, success=False,
         public_sub_code='user.not_signed_in',
-        header=header_collection['delete_all_tokens'])
+        header=delete_refresh_token)
 
     # Sign Up related
     user_signed_up = api_class.Response(  # User signing up success
         description='Successfully created a new account. Welcome!',
         code=201, success=True,
-        public_sub_code='user.sign_up')
+        public_sub_code='user.sign_up',
+        data=copy.deepcopy(user_auth_data_template))
     user_signed_up_but_mail_error = api_class.Response(  # User signing up success, but sign-up mail did not sent
         description='Successfully created a new account, but we couldn\'t send a confirmation mail.',
         code=201, success=True,
@@ -62,18 +59,19 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='Someone is already using user-wanted nick/id/email address. Try another one.',
         code=401, success=False,
         public_sub_code='user.already_used',
-        data={'duplicate': []})
+        data={'duplicate': ['', ]})
     user_info_mismatch = api_class.Response(
         description='We can\'t do what you request because the data you sent isn\'t correct.',
         code=401, success=False,
         public_sub_code='user.info_mismatch',
-        data={'fields': []})
+        data={'fields': ['', ]})
 
     # Sign In related
     user_signed_in = api_class.Response(
         description='User successfully signed in.',
         code=200, success=True,
-        public_sub_code='user.sign_in')
+        public_sub_code='user.sign_in',
+        data=copy.deepcopy(user_auth_data_template))
     user_wrong_password = api_class.Response(
         description='User typed wrong password.',
         code=401, success=False,
@@ -95,7 +93,7 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='User signed out.',
         code=200, success=True,
         public_sub_code='user.sign_out',
-        header=header_collection['delete_all_tokens'])
+        header=delete_refresh_token)
 
     # Account deactivate
     user_deactivate_success = api_class.Response(
@@ -135,26 +133,25 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
     access_token_refreshed = api_class.Response(  # Access token refreshing success
         description='Access token refreshed.',
         code=200, success=True,
-        public_sub_code='access_token.refreshed')
+        public_sub_code='access_token.refreshed',
+        data=copy.deepcopy(user_auth_data_template))
     access_token_invalid = api_class.Response(
         description='Access token is invalid.',
         code=401, success=False,
-        public_sub_code='access_token.invalid',
-        header=header_collection['delete_access_token'])
+        public_sub_code='access_token.invalid')
     access_token_expired = api_class.Response(
         description='Access token is expired. Please refresh it.',
         code=401, success=False,
-        public_sub_code='access_token.expired',
-        header=header_collection['delete_access_token'])
+        public_sub_code='access_token.expired')
 
     # Refresh Token related
     refresh_token_invalid = api_class.Response(
         description='Refresh token is invalid. Please re-signin.',
         code=401, success=False,
         public_sub_code='refresh_token.invalid',
-        header=header_collection['delete_all_tokens'])
+        header=[delete_refresh_token, ])
     refresh_token_expired = api_class.Response(
         description='Refresh token is expired. Please re-signin.',
         code=401, success=False,
         public_sub_code='refresh_token.expired',
-        header=header_collection['delete_all_tokens'])
+        header=[delete_refresh_token, ])

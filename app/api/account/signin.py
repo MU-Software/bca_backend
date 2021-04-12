@@ -16,14 +16,17 @@ db = db_module.db
 class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     @api_class.RequestHeader(
-        required_fields={'User-Agent': {'type': 'string', }, },
+        required_fields={
+            'User-Agent': {'type': 'string', },
+            'X-Csrf-Token': {'type': 'string', },
+        },
         optional_fields={'X-Client-Token': {'type': 'string', }, })
     @api_class.RequestBody(
         required_fields={
             'id': {'type': 'string', },
             'pw': {'type': 'string', },
         })
-    def post(self, req_header, req_body):
+    def post(self, req_header: dict, req_body: dict):
         '''
         description: Sign-in by email or id
         responses:
@@ -55,26 +58,14 @@ class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return CommonResponseCase.db_error.create_response()
             return CommonResponseCase.server_error.create_response()
 
-        refresh_token_cookie,\
-            access_token_cookie,\
-            refresh_token_data,\
-            access_token_data = jwt_module.create_login_cookie(
+        response_header, response_body = jwt_module.create_login_data(
                                             account_result,
                                             req_header.get('User-Agent'),
-                                            req_header.get('Client-Token', None),
+                                            req_header.get('X-Csrf-Token'),
+                                            req_header.get('X-Client-Token', None),
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
         return AccountResponseCase.user_signed_in.create_response(
-                    data={
-                        'email': account_result.email,
-                        'id': account_result.id,
-                        'nick': account_result.nickname,
-                        'uuid': account_result.uuid,
-
-                        'RefreshToken': refresh_token_data,
-                        'AccessToken': access_token_data,
-                    }, header=(
-                        ('Set-Cookie', refresh_token_cookie),
-                        ('Set-Cookie', access_token_cookie),
-                    ))
+                    header=response_header,
+                    data=response_body)

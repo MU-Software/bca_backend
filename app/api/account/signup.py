@@ -26,7 +26,10 @@ signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(hours
 class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @deco_module.PERMISSION(deco_module.need_signed_out)
     @api_class.RequestHeader(
-        required_fields={'User-Agent': {'type': 'string', }, },
+        required_fields={
+            'User-Agent': {'type': 'string', },
+            'X-Csrf-Token': {'type': 'string', },
+        },
         optional_fields={'X-Client-Token': {'type': 'string', }, })
     @api_class.RequestBody(
         required_fields={
@@ -52,7 +55,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         if not utils.is_email(req_body['email']):
             return CommonResponseCase.body_bad_semantics.create_response(
-                data={'bad_semantics': ({'email': 'WRONG'},)})
+                data={'bad_semantics': ({'email': 'NOT_A_VALID_EMAIL_ADDRESS'},)})
         if reason := utils.is_useridsafe(req_body['id']):
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'id': reason},)})
@@ -123,13 +126,11 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
         except Exception:
             mail_sent = False
 
-        refresh_token_cookie,\
-            access_token_cookie,\
-            refresh_token_data,\
-            access_token_data = jwt_module.create_login_cookie(
+        response_header, response_body = jwt_module.create_login_data(
                                             new_user,
                                             req_header.get('User-Agent'),
-                                            req_header.get('Client-Token', None),
+                                            req_header.get('X-Csrf-Token'),
+                                            req_header.get('X-Client-Token', None),
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
@@ -138,12 +139,5 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             response_type = AccountResponseCase.user_signed_up_but_mail_error
 
         return response_type.create_response(
-            header=(
-                ('Set-Cookie', refresh_token_cookie),
-                ('Set-Cookie', access_token_cookie),
-            ),
-            data={
-                'RefreshToken': refresh_token_data,
-                'AccessToken': access_token_data,
-            }
-        )
+                    header=response_header,
+                    data=response_body)

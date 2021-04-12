@@ -88,6 +88,29 @@ class Post(db_module.DefaultModelMixin, db.Model):
     liked_by: list['PostLike'] = None  # Placeholder for backref
     tags: list['PostTagRelation'] = None  # Placeholder for backref
 
+    def to_dict(self, has_perm: bool) -> dict:
+        return {
+            'id': self.uuid,
+
+            'created_at': self.created_at,
+            'modified': self.created_at != self.modified_at if has_perm else False,
+            'modified_at': self.modified_at if has_perm else '',
+
+            # We need to show icon when post is announcement, deleted or private
+            'announcement': self.announcement,
+            'deleted': self.deleted,
+            'private': self.private,
+
+            # We need to send author's nickname, profile, and author's UUID,
+            # uuid is used when frontend user clicks author nick and go to author's profile page
+            'user': self.user.nickname if has_perm else '',
+            'user_id': self.user_id if has_perm else 0,
+
+            # Post data
+            'title': self.title if has_perm else '',
+            'body': self.body if has_perm else '',
+        }
+
 
 class Comment(db_module.DefaultModelMixin, db.Model):
     __tablename__ = 'TB_COMMENT'
@@ -96,10 +119,10 @@ class Comment(db_module.DefaultModelMixin, db.Model):
                      primary_key=True)
 
     user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
-    user = db.relationship('User',
-                           primaryjoin=user_id == user_module.User.uuid,
-                           backref=db.backref('comments',
-                                              order_by='Comment.modified_at.desc()'))
+    user: 'user_module.User' = db.relationship('User',
+                                               primaryjoin=user_id == user_module.User.uuid,
+                                               backref=db.backref('comments',
+                                                                  order_by='Comment.modified_at.desc()'))
 
     post_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_POST.uuid'))
     post: 'Post' = db.relationship('Post',
@@ -128,6 +151,26 @@ class Comment(db_module.DefaultModelMixin, db.Model):
 
     modifiable = db.Column(db.Boolean, default=True, nullable=False)
     deletable = db.Column(db.Boolean, default=True, nullable=False)
+
+    def to_dict(self, has_perm: bool) -> dict:
+        return {
+            'id': self.uuid if has_perm else 0,
+
+            'created_at': self.created_at,
+            'modified': self.created_at != self.modified_at if has_perm else False,
+            'modified_at': self.modified_at if has_perm else '',
+
+            'private': self.private,
+            'deleted': self.deleted,
+
+            'user': self.user.nickname if has_perm else '',
+            'user_id': self.user_id if has_perm else 0,
+
+            'parent': self.parent_id,
+            'order': self.order,
+
+            'body': self.body if has_perm else ''
+        }
 
 
 class Tag(db_module.DefaultModelMixin, db.Model):

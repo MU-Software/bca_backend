@@ -14,7 +14,7 @@ import redis
 redis_db: redis.StrictRedis = None
 
 # Create db object when module loads, but do not connect to app context yet.
-db: fsql.SQLAlchemy = fsql.SQLAlchemy()
+db: fsql.SQLAlchemy = fsql.SQLAlchemy(session_options={"autoflush": False})
 
 PrimaryKeyType = db.BigInteger().with_variant(sqldlc_psql.BIGINT(), 'postgresql')
 PrimaryKeyType = db.BigInteger().with_variant(sqldlc_mysql.BIGINT(), 'mysql')

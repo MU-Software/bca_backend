@@ -2,6 +2,11 @@ import app.api.helper_class as api_class
 
 
 class PostResponseCase(api_class.ResponseCaseCollector):
+    board_not_found = api_class.Response(
+        description='Board you requested not found.',
+        code=404, success=True,
+        public_sub_code='board.not_found')
+
     post_found = api_class.Response(
         description='Post you requested found.',
         code=200, success=True,

@@ -48,7 +48,7 @@ class CommonResponseCase(api_class.ResponseCaseCollector):
         description='This will be responsed when some requirements are not given in user-sent body data.',
         code=400, success=False,
         public_sub_code='request.body.omitted',
-        data={'lacks': []})
+        data={'lacks': ['']})
     body_bad_semantics = api_class.Response(
         description='This will be responsed when validation of user-sent body data is failed, '
                     'such as not a valid mail, etc.',
@@ -67,7 +67,12 @@ class CommonResponseCase(api_class.ResponseCaseCollector):
         description='This will be responsed when some requirements(like tokens) are not given in user-sent header.',
         code=400, success=False,
         public_sub_code='request.header.omitted',
-        data={'lacks': []})
+        data={'lacks': ['']})
+    path_required_omitted = api_class.Response(
+        description='This will be responsed when some requirements are not given in request URL.',
+        code=400, success=False,
+        public_sub_code='request.path.omitted',
+        data={'lacks': ['']})
 
     http_ok = api_class.Response(
         description='Normal plane HTTP OK response',

@@ -32,6 +32,14 @@ class FrostRoutePlugin(apispec.BasePlugin):
 
         path_tag: str = [z for z in path.split('/') if z][1]
 
+        path_param_type_def = {
+            'list': 'array',
+            'dict': 'object',
+            'int': 'integer',
+            'string': 'string',
+            'float': 'number',
+            'bool': 'boolean',
+        }
         path_params_data: list[dict] = list()
         # Add path parameters on doc
         if '{' in path:
@@ -43,7 +51,7 @@ class FrostRoutePlugin(apispec.BasePlugin):
                     'name': path_param[1],
                     'required': True,
                     'schema': {
-                        'type': path_param[0],
+                        'type': path_param_type_def[path_param[0]],
                     },
                 })
 
@@ -104,6 +112,24 @@ def create_openapi_doc():
         },
         openapi_version='3.0.3',
         plugins=(FrostRoutePlugin(),),
+    )
+
+    # Register about auth-related specs on componenets.securitySchemas
+    spec.components.security_scheme(
+        component_id='BearerAuth',
+        component={
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        }
+    )
+    spec.components.security_scheme(
+        component_id='RefreshTokenAuth',
+        component={
+            'type': 'apiKey',
+            'in': 'cookie',
+            'name': 'refresh_token',
+        }
     )
 
     # Register all possible response cases on components.schema

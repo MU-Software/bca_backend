@@ -16,9 +16,9 @@ def before_request():
         if flask.request.headers.get('X-Development-Key') != flask.current_app.config.get('DEVELOPMENT_KEY'):
             return AccountResponseCase.user_signed_out.create_response()
 
-    if flask.current_app.config.get('REFERER_CHECK'):
-        if flask.request.headers.get('referer', '') != flask.current_app.config.get('SERVER_NAME'):
-            return CommonResponseCase.http_forbidden.create_response()
+    # if flask.current_app.config.get('REFERER_CHECK'):
+    #     if flask.request.headers.get('referer', '') != flask.current_app.config.get('SERVER_NAME'):
+    #         return CommonResponseCase.http_forbidden.create_response()
 
 
 def after_request(response):

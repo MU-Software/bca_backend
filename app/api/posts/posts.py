@@ -1,6 +1,7 @@
 import datetime
 import flask
 import flask.views
+import typing
 
 import app.api.helper_class as api_class
 import app.common.utils as utils
@@ -10,7 +11,6 @@ import app.database.jwt as jwt_module
 import app.database.board as board_module
 
 from app.api.response_case import CommonResponseCase
-from app.api.account.response_case import AccountResponseCase
 from app.api.posts.response_case import PostResponseCase
 
 
@@ -19,7 +19,7 @@ def has_post_permission(
         post_obj: board_module.Post,
         action: str) -> bool:
     try:
-        # Only those actions are allowed, we must check 'post' when user uploads post.
+        # Only those actions are allowed, we must check separately when user uploads post.
         if action not in ('get', 'put', 'delete'):
             return False
 
@@ -31,10 +31,12 @@ def has_post_permission(
         if not access_token or access_token.user < 0:
             return False
 
-        target_user: user_module.User = user_module.User.query.filter(
-                                            user_module.User.uuid == access_token.user
-                                        ).first()
-        if not target_user or target_user.deactivated_at or target_user.locked_at:
+        target_user: user_module.User = user_module.User.query\
+            .filter(user_module.User.uuid == access_token.user)\
+            .filter(user_module.User.locked_at is not None)\
+            .filter(user_module.User.deactivated_at is not None)\
+            .first()
+        if not target_user:
             return False
 
         # Is user admin?
@@ -56,309 +58,184 @@ def has_post_permission(
 
 
 class PostRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    # Return post content & comments
-    def get(self, post_id: str):
-        if not post_id:
-            return CommonResponseCase.http_mtd_forbidden.create_response(
-                data={'lacks': ['post_id']})
-        elif not post_id.isdigit():
-            return CommonResponseCase.http_mtd_forbidden.create_response()
-        post_id = int(post_id)
-
-        target_post: board_module.Post = None
+    @api_class.RequestHeader(
+        required_fields={},
+        optional_fields={
+            'X-Csrf-Token': {'type': 'string', },
+        },
+        auth={api_class.AuthType.Bearer: False, })
+    def get(self,
+            board_id: int,
+            post_id: int,
+            req_header: dict,
+            access_token: typing.Optional[jwt_module.AccessToken]):
+        '''
+        description: Return post and comments
+        responses:
+            - post_found
+            - post_not_found
+            - post_forbidden
+            - db_error
+            - server_error
+        '''
         try:
-            target_post = board_module.Post.query\
-                .filter(not board_module.Post.locked)\
-                .filter(not board_module.Post.deleted)\
-                .filter(board_module.Post.uuid == int(post_id)).first()
+            target_post: board_module.Post = board_module.Post.query\
+                .filter(board_module.Post.locked == False)\
+                .filter(board_module.Post.deleted == False)\
+                .filter(board_module.Post.board_id == board_id)\
+                .filter(board_module.Post.uuid == post_id).first()  # noqa
+            if not target_post:
+                return PostResponseCase.post_not_found.create_response()
         except Exception:
             return CommonResponseCase.db_error.create_response()
-        if not target_post:
-            return PostResponseCase.post_not_found.create_response()
 
-        user_has_power: bool = False  # This var will be used on comment processing
-        access_token: jwt_module.AccessToken = None
         # if target_post.private == False, then response post data
         if target_post.private:
-            # Get user access token and check it
-            access_token = jwt_module.get_account_data()
-
-            if not access_token:
-                if access_token is False:
-                    return AccountResponseCase.access_token_expired.create_response()
-                return AccountResponseCase.access_token_invalid.create_response()
-            else:
-                # Check user permission
-                user_has_power = has_post_permission(access_token, target_post, 'get')
-
-                if not user_has_power:
-                    return PostResponseCase.post_forbidden.create_response()
+            # if post is private, then only admin and post owner can see this.
+            if not access_token or\
+               access_token.role not in ('admin', ) or\
+               access_token.user == target_post.user_id:
+                return PostResponseCase.post_forbidden.create_response()
 
         response_comments = list()
-        comment: board_module.Comment = None
-        for comment in target_post.comments:
-            if not comment.deleted:  # if comment is not deleted
-                is_comment_readable: bool = (not comment.private) or user_has_power
+        try:
+            comment: board_module.Comment = board_module.Comment.query\
+                .filter(board_module.Comment.post_id == target_post.uuid)\
+                .filter(board_module.Comment.deleted == False)\
+                .all()  # noqa
+            for comment in target_post.comments:
+                is_comment_readable: bool = not comment.private
                 if not is_comment_readable and access_token:
-                    if comment.user_id == access_token.user:
+                    if access_token.role in ('admin', ) or access_token.user == target_post.user_id:
                         is_comment_readable = True
 
-                response_comments.append({
-                    'id': comment.id,
-
-                    'created_at': comment.created_at,
-                    'modified': comment.created_at == comment.modified_at,
-                    'modified_at': comment.modified_at,
-
-                    'private': comment.private,
-                    'deleted': False,
-
-                    'user': comment.user.nickname,
-                    'user_id': comment.user_id,
-                    'is_post_author': target_post.user_id == comment.user_id,
-
-                    'parent': comment.parent_id,
-                    'order': comment.order,
-
-                    'body': '' if not is_comment_readable else comment.body
-                })
-            else:  # if comment is deleted
-                response_comments.append({
-                    'id': comment.id,
-
-                    'created_at': 0,
-                    'modified': True,
-                    'modified_at': 0,
-
-                    'private': True,
-                    'deleted': True,
-
-                    'user': '',
-                    'user_id': 0,
-                    'is_post_author': False,
-
-                    'parent': comment.parent_id,
-                    'order': comment.order,
-
-                    'body': ''
-                })
-
-        return PostResponseCase.post_found.create_response(data={
-            'id': post_id,
-
-            'created_at': target_post.created_at,
-            'modified': target_post.created_at == target_post.modified_at,
-            'modified_at': target_post.modified_at,
-
-            # We need to show icon when post is announcement, deleted or private
-            'announcement': target_post.announcement,
-            'deleted': target_post.deleted,
-            'private': target_post.private,
-
-            # We need to send author's nickname, profile, and author's UUID,
-            # uuid is used when frontend user clicks author nick and go to author's profile page
-            'user': target_post.user.nickname,
-            'user_id': target_post.user_id,
-
-            # Post data
-            'title': target_post.title,
-            'body': target_post.body,
-
-            # Comments must be filtered
-            'comments': response_comments,
-        }, header=(
-            ('ETag', target_post.commit_id),
-            ('Last-Modified', target_post.modified_at),
-        ))
-
-    # Create new post
-    def post(self, post_id: str):
-        if not post_id or post_id.lower() != 'new':
-            return CommonResponseCase.http_mtd_forbidden.create_response()
-
-        # Get user access token and check it
-        user_is_superuser: bool = False
-        access_token: jwt_module.AccessToken = jwt_module.get_account_data()
-
-        # Check access token on request
-        if not access_token:
-            if access_token is False:
-                return AccountResponseCase.access_token_expired.create_response()
-            return AccountResponseCase.access_token_invalid.create_response()
-
-        # Check user permission
-        try:
-            # Get user data from table using access token
-            if access_token.user < 0:
-                return AccountResponseCase.access_token_invalid.create_response()
-
-            target_user: user_module.User = user_module.User.query.filter(
-                                                user_module.User.uuid == access_token.user
-                                            ).first()
-            if not target_user:
-                return AccountResponseCase.access_token_invalid.create_response()
-
-            # Is user admin?
-            if target_user.role in ('admin', ):
-                # Admin can do everything, including writing announcement post
-                user_is_superuser = True
-            # Is user on normal state so that user is not deactivated and locked?
-            if target_user.deactivated_at or target_user.locked_at:
-                return AccountResponseCase.refresh_token_invalid.create_response()
-
+                comment_data = comment.to_dict(is_comment_readable)
+                comment_data['is_post_author'] = target_post.user_id == comment_data['user_id']
+                response_comments.append(comment.to_dict(is_comment_readable))
         except Exception:
-            return PostResponseCase.post_forbidden.create_response()
+            # Just ignore comments when error occurs
+            pass
 
-        # Get user-written post data from request
-        post_req = utils.request_body(
-            required_fields=['title', 'body'],
-            optional_fields=['announcement', 'private', 'commentable'])
-        if type(post_req) == list:
-            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
-        elif post_req is None:
-            return CommonResponseCase.body_invalid.create_response()
-        elif not post_req:
-            return CommonResponseCase.body_empty.create_response()
-        elif type(post_req) != dict:
-            return CommonResponseCase.body_invalid.create_response()
+        post_data = target_post.to_dict(True)
+        post_data['comments'] = response_comments
+        return PostResponseCase.post_found.create_response(
+            data=post_data,
+            header=(
+                ('ETag', target_post.commit_id),
+                ('Last-Modified', target_post.modified_at),
+            ))
 
-        try:
-            new_post = board_module.Post()
-            new_post.user = target_user
-            new_post.title = post_req['title']
-            new_post.body = post_req['body']
+    # # Modify post
+    # def patch(self, post_id: int):
+    #     post_req = utils.request_body(
+    #         required_fields=[],
+    #         optional_fields=[
+    #             'title', 'body',
+    #             'announcement', 'private', 'commentable'])
+    #     if type(post_req) == list:
+    #         return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
+    #     elif post_req is None:
+    #         return CommonResponseCase.body_invalid.create_response()
+    #     elif not post_req:
+    #         return CommonResponseCase.body_empty.create_response()
+    #     elif type(post_req) != dict:
+    #         return CommonResponseCase.body_invalid.create_response()
 
-            new_post.private = bool(post_req.get('private', False))
-            new_post.commentable = bool(post_req.get('commentable', True))
+    #     target_post: board_module.Post = None
+    #     try:
+    #         target_post = board_module.Post.query\
+    #             .filter(board_module.Post.locked == False)\
+    #             .filter(board_module.Post.deleted == False)\
+    #             .filter(board_module.Post.uuid == int(post_id)).first()
+    #     except Exception:
+    #         return CommonResponseCase.db_error.create_response()
+    #     if not target_post:
+    #         return PostResponseCase.post_not_found.create_response()
 
-            if user_is_superuser:
-                new_post.announcement = bool(post_req.get('announcement', False))
-            else:
-                new_post.announcement = False
+    #     # Check requested user is author
+    #     access_token: jwt_module.AccessToken = jwt_module.get_account_data()
 
-            db_module.db.session.add(new_post)
-            db_module.db.session.commit()
+    #     if not access_token:
+    #         if access_token is False:
+    #             return AccountResponseCase.access_token_expired.create_response()
+    #         return AccountResponseCase.access_token_invalid.create_response()
 
-            return PostResponseCase.post_created.create_response(
-                data={
-                    'id': new_post.uuid
-                }, header=(
-                    ('ETag', new_post.commit_id),
-                    ('Last-Modified', new_post.modified_at),
-                ))
-        except Exception:
-            # TODO: Check DB error
-            return CommonResponseCase.server_error.create_response()
+    #     # Check Etag
+    #     if req_etag := flask.request.headers.get('If-Match', False):
+    #         if req_etag != target_post.commit_id:
+    #             return PostResponseCase.post_prediction_failed.create_response()
+    #     elif req_modified_at := flask.request.headers.get('If-Unmodified-Since', False):
+    #         try:
+    #             req_modified_at = datetime.datetime.strptime(req_modified_at, '%a, %d %b %Y %H:%M:%S GMT')
+    #             if target_post.modified_at > req_modified_at:
+    #                 return PostResponseCase.post_prediction_failed.create_response()
+    #         except Exception:
+    #             return CommonResponseCase.header_invalid.create_response()
+    #     else:
+    #         return CommonResponseCase.header_required_omitted.create_response(data={'lacks': ['ETag', ]})
 
-    # Modify post
-    def patch(self, post_id: str):
-        if not post_id:
-            return CommonResponseCase.http_mtd_forbidden.create_response(
-                data={'lacks': ['post_id']})
-        if not post_id.isdigit():
-            return CommonResponseCase.http_mtd_forbidden.create_response()
-        post_id = int(post_id)
+    #     # Is req_user author? (author cannot modify post when post is not modifiable)
+    #     if (target_post.user_id != access_token.user) or (not target_post.modifiable):
+    #         return PostResponseCase.post_forbidden.create_response()
 
-        post_req = utils.request_body(
-            required_fields=[],
-            optional_fields=[
-                'title', 'body',
-                'announcement', 'private', 'commentable'])
-        if type(post_req) == list:
-            return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
-        elif post_req is None:
-            return CommonResponseCase.body_invalid.create_response()
-        elif not post_req:
-            return CommonResponseCase.body_empty.create_response()
-        elif type(post_req) != dict:
-            return CommonResponseCase.body_invalid.create_response()
+    #     try:
+    #         # Modify post using request body
+    #         for req_key, req_value in post_req.items():
+    #             setattr(target_post, req_key, req_value)
+    #         db_module.db.session.commit()
 
-        target_post: board_module.Post = None
-        try:
-            target_post = board_module.Post.query\
-                .filter(not board_module.Post.locked)\
-                .filter(not board_module.Post.deleted)\
-                .filter(board_module.Post.uuid == int(post_id)).first()
-        except Exception:
-            return CommonResponseCase.db_error.create_response()
-        if not target_post:
-            return PostResponseCase.post_not_found.create_response()
+    #         return PostResponseCase.post_modified.create_response()
+    #     except Exception:
+    #         return CommonResponseCase.db_error.create_response()
 
-        # Check requested user is author
-        access_token: jwt_module.AccessToken = jwt_module.get_account_data()
-
-        if not access_token:
-            if access_token is False:
-                return AccountResponseCase.access_token_expired.create_response()
-            return AccountResponseCase.access_token_invalid.create_response()
-
-        # Check Etag
-        if req_etag := flask.request.headers.get('If-Match', False):
-            if req_etag != target_post.commit_id:
-                return PostResponseCase.post_prediction_failed.create_response()
-        elif req_modified_at := flask.request.headers.get('If-Unmodified-Since', False):
-            try:
-                req_modified_at = datetime.datetime.strptime(req_modified_at, '%a, %d %b %Y %H:%M:%S GMT')
-                if target_post.modified_at > req_modified_at:
-                    return PostResponseCase.post_prediction_failed.create_response()
-            except Exception:
-                return CommonResponseCase.header_invalid.create_response()
-        else:
-            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': ['ETag', ]})
-
-        # Is req_user author? (author cannot modify post when post is not modifiable)
-        if (target_post.user_id != access_token.user) or (not target_post.modifiable):
-            return PostResponseCase.post_forbidden.create_response()
-
-        try:
-            # Modify post using request body
-            for req_key, req_value in post_req.items():
-                setattr(target_post, req_key, req_value)
-            db_module.db.session.commit()
-
-            return PostResponseCase.post_modified.create_response()
-        except Exception:
-            return CommonResponseCase.db_error.create_response()
-
-    # Delete post
-    def delete(self, post_id: str):
+    @api_class.RequestHeader(
+        required_fields={
+            'X-Csrf-Token': {'type': 'string', },
+        },
+        optional_fields={
+            'If-Match': {'type': 'string', },
+            'If-Unmodified-Since': {'type': 'string', }, },
+        auth={api_class.AuthType.Bearer: True, })
+    def delete(self,
+               board_id: int,
+               post_id: int,
+               req_header: dict,
+               access_token: jwt_module.AccessToken):
+        '''
+        description: Delete post
+        responses:
+            - post_deleted
+            - post_not_found
+            - post_forbidden
+            - post_prediction_failed
+            - header_invalid
+            - header_required_omitted
+            - db_error
+            - server_error
+        '''
         # Check requested user has permission to delete,
-        # is req_user manager or author? (author cannot delete post when post is not deletable)
-        if not post_id:
-            return CommonResponseCase.http_mtd_forbidden.create_response(
-                data={'lacks': ['post_id']})
-        if not post_id.isdigit():
-            return CommonResponseCase.http_mtd_forbidden.create_response()
-        post_id = int(post_id)
-
+        # Is req_user manager or author? (author cannot delete post when post is not deletable)
         target_post: board_module.Post = None
         try:
             target_post = board_module.Post.query\
-                .filter(not board_module.Post.locked)\
-                .filter(not board_module.Post.deleted)\
-                .filter(board_module.Post.uuid == int(post_id)).first()
+                .filter(board_module.Post.locked == False)\
+                .filter(board_module.Post.deleted == False)\
+                .filter(board_module.Post.board_id == board_id)\
+                .filter(board_module.Post.uuid == int(post_id)).first()  # noqa
         except Exception:
             return CommonResponseCase.db_error.create_response()
         if not target_post:
             return PostResponseCase.post_not_found.create_response()
-
-        # Get user access token and check it
-        access_token: jwt_module.AccessToken = jwt_module.get_account_data()
-
-        if not access_token:
-            if access_token is False:
-                return AccountResponseCase.access_token_expired.create_response()
-            return AccountResponseCase.access_token_invalid.create_response()
 
         # Check user permission
         if not has_post_permission(access_token, target_post, 'delete'):
             return PostResponseCase.post_forbidden.create_response()
 
         # Check Etag
-        if req_etag := flask.request.headers.get('If-Match', False):
+        if req_etag := req_header.get('If-Match', False):
             if req_etag != target_post.commit_id:
                 return PostResponseCase.post_prediction_failed.create_response()
-        elif req_modified_at := flask.request.headers.get('If-Unmodified-Since', False):
+        elif req_modified_at := req_header.get('If-Unmodified-Since', False):
             try:
                 req_modified_at = datetime.datetime.strptime(req_modified_at, '%a, %d %b %Y %H:%M:%S GMT')
                 if target_post.modified_at > req_modified_at:
@@ -366,13 +243,18 @@ class PostRoute(flask.views.MethodView, api_class.MethodViewMixin):
             except Exception:
                 return CommonResponseCase.header_invalid.create_response()
         else:
-            return CommonResponseCase.header_required_omitted.create_response(data={'lacks': ['ETag', ]})
+            return CommonResponseCase.header_required_omitted.create_response(
+                data={
+                    'lacks': [
+                        'If-Match',
+                        'If-Unmodified-Since']})
 
         try:
             target_post.deleted = True
             target_post.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
             target_post.deleted_by_id = access_token.user
             db_module.db.session.commit()
+
             return PostResponseCase.post_deleted.create_response(
                 data={'id': target_post.uuid}
             )

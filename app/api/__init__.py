@@ -17,8 +17,8 @@ import app.api.ping as route_ping  # noqa
 resource_routes.update(route_ping.resource_route)
 import app.api.account as route_account  # noqa
 resource_routes.update(route_account.resource_route)
-# import app.api.posts as route_posts  # noqa
-# resource_routes.update(route_posts.resource_route)
+import app.api.posts as route_posts  # noqa
+resource_routes.update(route_posts.resource_route)
 
 if flask.current_app.config.get('RESTAPI_VERSION') == 'dev':
     import app.api.debug as route_debug  # noqa

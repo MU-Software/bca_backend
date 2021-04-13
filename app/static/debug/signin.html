@@ -118,21 +118,34 @@
     <script type="text/javascript" src="/api/debug/src/json-viewer.js"></script>
     <link rel="stylesheet" type="text/css" href="/api/debug/src/json-viewer.css">
     <script>
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+      }
+
+      var csrfToken = uuidv4();
+      var accessToken = '';
+
       function formToJson(formID){
         var formElement = document.getElementById(formID),
             inputElements = formElement.getElementsByTagName("input"),
+            textareaElements = formElement.getElementsByTagName("textarea"),
             jsonObject = {};
         for(var i = 0; i < inputElements.length; i++){
           var inputElement = inputElements[i];
-          console.log(inputElement);
           if (inputElement.type != "submit") {
             jsonObject[inputElement.name] = inputElement.value;
           }
         }
+        for(var i = 0; i < textareaElements.length; i++){
+          var textareaElement = textareaElements[i];
+          jsonObject[textareaElement.name] = textareaElement.value;
+        }
         return JSON.stringify(jsonObject);
       }
 
-      function simpleFormPostRequest(baseID, targetJsonViewer) {
+      function simpleFormPostRequest(baseID, targetJsonViewer, isAuth=true) {
         var resultPre = document.getElementById(baseID + '_request_result_pre');
         var formElement = document.getElementById(baseID + '_form');
         var formData = formToJson(baseID + '_form');
@@ -140,19 +153,27 @@
         xhr.onload = () => {
           var isSuccess = ''
           if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
-            isSuccess = 'SUCCESS!'
+            isSuccess = 'SUCCESS!';
+            if (isAuth) {
+              response = JSON.parse(xhr.response);
+              accessToken = response.data.access_token.token;
+            }
           } else {
-            isSuccess = 'FAILED!'
+            isSuccess = 'FAILED!';
           }
           try {
-            targetJsonViewer.showJSON(JSON.parse(xhr.response))
+            targetJsonViewer.showJSON(JSON.parse(xhr.response));
           } catch (e) {}
-          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString()
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString();
           // resultPre.textContent += '\r\nRESULT_DATA = ' + JSON.stringify(JSON.parse(xhr.response), null, 2);
           resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
         }
 
         xhr.open('POST', formElement.action);
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(formData);
       }
@@ -163,18 +184,22 @@
         xhr.onload = () => {
           var isSuccess = ''
           if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
-            isSuccess = 'SUCCESS!'
+            isSuccess = 'SUCCESS!';
           } else {
-            isSuccess = 'FAILED!'
+            isSuccess = 'FAILED!';
           }
           try {
-            targetJsonViewer.showJSON(JSON.parse(xhr.response))
+            targetJsonViewer.showJSON(JSON.parse(xhr.response));
           } catch (e) {}
-          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString()
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString();
           resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
         }
 
         xhr.open('POST', url);
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(postBody);
       }
@@ -185,18 +210,22 @@
         xhr.onload = () => {
           var isSuccess = ''
           if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
-            isSuccess = 'SUCCESS!'
+            isSuccess = 'SUCCESS!';
           } else {
-            isSuccess = 'FAILED!'
+            isSuccess = 'FAILED!';
           }
           try {
-            targetJsonViewer.showJSON(JSON.parse(xhr.response))
+            targetJsonViewer.showJSON(JSON.parse(xhr.response));
           } catch (e) {}
-          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString()
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString();
           resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
         }
 
         xhr.open('GET', url);
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send();
       }
@@ -205,7 +234,6 @@
       var loginJsonViewer = new JSONViewer();
       var signoutJsonViewer = new JSONViewer();
       var accessRefreshJsonViewer = new JSONViewer();
-      var tokenCheckJsonViewer = new JSONViewer();
     </script>
   </head>
   <body>
@@ -332,20 +360,6 @@
 
           <script>
             document.querySelector("#signout_request_result_json").appendChild(signoutJsonViewer.getContainer());
-          </script>
-        </aside>
-
-        <aside class="item">
-          <h3>토큰 상태 확인</h3>
-          <button id="token_stat_btn" onclick="simpleGetRequest('/api/dev/account/tokeninfo', 'token_stat', tokenCheckJsonViewer); return false;">토큰 데이터 얻기!</button>
-
-          <h5>Request Result(JSON)</h5>
-          <div id="token_stat_request_result_json"></div>
-          <h5>Request Result(PRE)</h5>
-          <pre id="token_stat_request_result_pre"></pre>
-
-          <script>
-            document.querySelector("#token_stat_request_result_json").appendChild(tokenCheckJsonViewer.getContainer());
           </script>
         </aside>
 

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" content />
+    <title>DEVCO Posting testbed</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+    <style>
+      :root {
+        --color: #2979ff;
+        --line-height: normal;
+      }
+      html {
+        user-select: none;
+        font-size: 75%;
+      }
+      body {
+        padding: 0;
+        margin: 0;
+        line-height: normal;
+      }
+      h1 {
+        text-align: center;
+      }
+      section aside {
+        /* max-width: calc(var(--width-card-wide) - 48px); */
+        min-width: 27vw;
+        height: fit-content;
+        text-align: center;
+        background-color: #f7f7f7;
+        border: 1px solid #7af;
+      }
+      .container_container {
+        overflow-x: scroll;
+      }
+      .container {
+        display: flex;
+        flex-flow: column wrap;
+        justify-content: normal;
+        align-self: safe center;
+        align-items: center;
+        /* align-content: flex-start; */
+        /* I don't know why, I don't want to know why,
+           I shouldn't have to wonder why, but for whatever reason
+           this stupid card isn't laying out correctly
+           unless we do this terribleness*/
+        height: calc(100vh - 3.4em - 48px);
+        /* width: calc((var(--width-card) + 72px) * 3); */
+      }
+      .item::before {
+        counter-increment: items;
+        /* content: counter(items); */
+      }
+
+      /* Re-order items into 3 rows */
+      .item:nth-child(3n+1) { order: 1; }
+      .item:nth-child(3n+2) { order: 2; }
+      .item:nth-child(3n)   { order: 3; }
+
+      /* Force new columns */
+      /* .container::before,
+      .container::after {
+        content: "";
+        flex-basis: 100%;
+        width: 0;
+        order: 2;
+      } */
+
+      h3 {
+        margin-top: 0;
+        min-width: 100;
+        text-align: center;
+      }
+      form {
+        margin-top: 12px;
+        margin-bottom: 12px;
+        min-width: 0;
+        background-color: #fff;
+      }
+      label {
+        font-size: 10pt;
+        color: #484848;
+      }
+      input[type=text], input[type=password], input[type=email], textarea {
+        width: calc(100% - 24px);
+      }
+      input[type=submit] {
+        margin: 0;
+        background-color: #2979ff;
+        color: #fff;
+      }
+      button {
+        padding: revert;
+      }
+
+      h5 {
+        min-width: 100;
+        margin-bottom: 0.2rem;
+        text-align: left;
+      }
+      pre {
+        border: 1px solid var(--color-bg-secondary);
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow) var(--color-shadow);
+
+        background-color: #fff;
+        min-height: 48pt;
+        margin: 0;
+        padding: 1.5rem;
+
+        max-width: var(--width-card-wide);
+        /* min-width: var(--width-card); */
+
+        white-space: pre-wrap;
+        word-break: break-all;
+        text-align: left;
+      }
+    </style>
+    <script type="text/javascript" src="/api/debug/src/json-viewer.js"></script>
+    <link rel="stylesheet" type="text/css" href="/api/debug/src/json-viewer.css">
+    <script>
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+      }
+
+      var csrfToken = uuidv4();
+      var accessToken = '';
+
+      function accessTokenRefresh() {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          var isSuccess = ''
+          if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
+            isSuccess = 'GETTING ACCESSTOKEN SUCCESS!';
+            response = JSON.parse(xhr.response);
+            accessToken = response.data.access_token.token;
+          } else { isSuccess = 'GETTING ACCESSTOKEN FAILED!'; }
+          alert(isSuccess);
+        }
+
+        xhr.open('POST', '/api/dev/account/refresh');
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send();
+      }
+      accessTokenRefresh();
+
+      function formToJson(formID){
+        var formElement = document.getElementById(formID),
+            inputElements = formElement.getElementsByTagName("input"),
+            textareaElements = formElement.getElementsByTagName("textarea"),
+            jsonObject = {};
+        for(var i = 0; i < inputElements.length; i++){
+          var inputElement = inputElements[i];
+          if (inputElement.type != "submit") {
+            jsonObject[inputElement.name] = inputElement.value;
+          }
+        }
+        for(var i = 0; i < textareaElements.length; i++){
+          var textareaElement = textareaElements[i];
+          jsonObject[textareaElement.name] = textareaElement.value;
+        }
+        return JSON.stringify(jsonObject);
+      }
+
+      function simpleFormPostRequest(baseID, targetJsonViewer, isAuth=true) {
+        var resultPre = document.getElementById(baseID + '_request_result_pre');
+        var formElement = document.getElementById(baseID + '_form');
+        var formData = formToJson(baseID + '_form');
+        var xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          var isSuccess = ''
+          if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
+            isSuccess = 'SUCCESS!';
+            if (isAuth) {
+              response = JSON.parse(xhr.response);
+              accessToken = response.data.access_token.token;
+            }
+          } else {
+            isSuccess = 'FAILED!';
+          }
+          try {
+            targetJsonViewer.showJSON(JSON.parse(xhr.response));
+          } catch (e) {}
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString();
+          // resultPre.textContent += '\r\nRESULT_DATA = ' + JSON.stringify(JSON.parse(xhr.response), null, 2);
+          resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
+        }
+
+        xhr.open('POST', formElement.action);
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send(formData);
+      }
+
+      function simplePostRequest(url, baseID, targetJsonViewer, postBody) {
+        var resultPre = document.getElementById(baseID + '_request_result_pre');
+        var xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          var isSuccess = ''
+          if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
+            isSuccess = 'SUCCESS!';
+          } else {
+            isSuccess = 'FAILED!';
+          }
+          try {
+            targetJsonViewer.showJSON(JSON.parse(xhr.response));
+          } catch (e) {}
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString();
+          resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
+        }
+
+        xhr.open('POST', url);
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send(postBody);
+      }
+
+      function simpleGetRequest(url, baseID, targetJsonViewer) {
+        var resultPre = document.getElementById(baseID + '_request_result_pre');
+        var xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          var isSuccess = ''
+          if (Math.floor(xhr.status / 100) === 2 && JSON.parse(xhr.response).success === true) {
+            isSuccess = 'SUCCESS!';
+          } else {
+            isSuccess = 'FAILED!';
+          }
+          try {
+            targetJsonViewer.showJSON(JSON.parse(xhr.response));
+          } catch (e) {}
+          resultPre.textContent = isSuccess + ' CODE = ' + xhr.status.toString();
+          resultPre.textContent += '\r\nRESULT_DATA = ' + xhr.response;
+        }
+
+        xhr.open('GET', url);
+        xhr.setRequestHeader('X-Csrf-Token', csrfToken);
+        if (accessToken) {
+            xhr.setRequestHeader('Authentication', accessToken);
+        }
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send();
+      }
+
+      var boardReloadJsonViewer = new JSONViewer();
+      var postRequestJsonViewer = new JSONViewer();
+    </script>
+  </head>
+
+  <body>
+
+    <h1>글 목록/읽기/쓰기 데모</h1>
+    <div class="container_container">
+      <section class="container">
+        <aside class="item">
+          <h3>글 목록</h3>
+          <button
+            id="board_reload_btn"
+            onclick="simpleGetRequest('/api/dev/boards/1', 'board_reload', boardReloadJsonViewer); return false;">
+            게시판 새로고침
+          </button>
+
+          <h5>Request Result(JSON)</h5>
+          <div id="board_reload_request_result_json"></div>
+          <h5>Request Result(PRE)</h5>
+          <pre id="board_reload_request_result_pre"></pre>
+
+          <script>
+            document.querySelector("#board_reload_request_result_json").appendChild(boardReloadJsonViewer.getContainer());
+          </script>
+        </aside>
+
+        <aside class="item">
+          <h3>글 쓰기</h3>
+          <form id="post_form" action="/api/dev/boards/1/posts/new" method="post" >
+            <label for="post_title">제목</label>
+            <input
+              id="post_title"
+              name="title"
+              type="text"
+              autocapitalize="none"
+              autocomplete="on"
+              autocorrect="off"
+              spellcheck="false"
+              dir="auto" />
+
+            <label for="post_body">내용</label>
+            <textarea id="post_body" name="body"></textarea>
+
+            <input
+              id="post_submit"
+              type="submit"
+              onclick="simpleFormPostRequest('post', postRequestJsonViewer, false); return false;" />
+          </form>
+
+          <h5>Request Result(JSON)</h5>
+          <div id="post_request_result_json"></div>
+          <h5>Request Result(PRE)</h5>
+          <pre id="post_request_result_pre"></pre>
+
+          <script>
+            document.querySelector("#post_request_result_json").appendChild(postRequestJsonViewer.getContainer());
+          </script>
+        </aside>
+      </section>
+    </div>
+  </body>
+</html>

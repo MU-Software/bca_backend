@@ -153,3 +153,7 @@ pip-selfcheck.json
 
 # SSH key file for DockerFile git clone
 id_rsa
+
+# We won't commit OpenAPI document,
+# Instead, we'll create documents on live server
+docs/*

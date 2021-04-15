@@ -27,7 +27,7 @@ def need_signed_out(perm_args: typing.Any = None, fkwargs: dict = None) -> tuple
 
     # This function must be used only in /account route,
     # Because refresh token can be accessed only in /account route
-    if not flask.request.path.startswith(f'/{flask.current_app.config.get("RESTAPI_VERSION")}/account'):
+    if not flask.request.path.startswith(f'/api/{flask.current_app.config.get("RESTAPI_VERSION")}/account'):
         # But, if this function used in non-/account-route, then always return 401,
         # because we can't check whether we are signed-in or not.
         return False, api_class.create_response(

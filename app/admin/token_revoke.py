@@ -19,7 +19,7 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
         user_result = user.User.query.all()
         token_result = jwt_module.RefreshToken.query.all()
         revoked_dict = dict()
-        for k, v in redis_db.scan_iter(pattern='refresh_revoke=*'):
+        for k, v in redis_db.scan_iter(match='refresh_revoke=*'):
             revoked_dict[k.decode()] = v.decode()
 
         return self.render(

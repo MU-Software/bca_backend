@@ -1,5 +1,6 @@
 import flask
 import werkzeug.exceptions
+# import urllib.parse
 
 import app.common.utils as utils
 from app.api.response_case import CommonResponseCase
@@ -17,7 +18,9 @@ def before_request():
             return AccountResponseCase.user_signed_out.create_response()
 
     # if flask.current_app.config.get('REFERER_CHECK'):
-    #     if flask.request.headers.get('referer', '') != flask.current_app.config.get('SERVER_NAME'):
+    #     server_name: str = flask.current_app.config.get('SERVER_NAME')
+    #     referer_url: str = flask.request.headers.get('referer', '')
+    #     if urllib.parse.urlparse(referer_url).netloc != server_name:
     #         return CommonResponseCase.http_forbidden.create_response()
 
 

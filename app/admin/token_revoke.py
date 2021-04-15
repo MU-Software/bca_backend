@@ -34,6 +34,7 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
         optional_fields={
             'user_uuid': {'type': 'integer', },
             'target_jti': {'type': 'integer', },
+            'do_delete': {'type': 'string', },
         })
     def post(self, req_body: dict):
         if not any((('user_uuid' in req_body), ('target_jti' in req_body))):
@@ -53,15 +54,24 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
             for target in query_result:
                 # TODO: set can set multiple at once, so use that method instead
                 redis_db.set('refresh_revoke=' + str(target.jti), 'revoked', datetime.timedelta(weeks=2))
+
+                if 'do_delete' in req_body:
+                    db.session.delete(target)
         else:
             query_result = jwt_module.RefreshToken.query\
                                 .filter(jwt_module.RefreshToken.jti == int(req_body['target_jti']))\
-                                .all()  # noqa
+                                .first()  # noqa
             if not query_result:
                 return AccountResponseCase.refresh_token_invalid(
                     message='RefreshToken that has such JTI not found')
 
             redis_db.set('refresh_revoke=' + str(req_body['target_jti']), 'revoked', datetime.timedelta(weeks=2))
+
+            if 'do_delete' in req_body:
+                db.session.delete(query_result)
+
+        if 'do_delete' in req_body:
+            db.session.commit()
 
         return CommonResponseCase.http_ok.create_response(
             code=301,

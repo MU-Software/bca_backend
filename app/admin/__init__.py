@@ -5,7 +5,12 @@ import flask_admin.contrib.sqla as fadmin_sqla
 
 def init_app(app: flask.Flask, add_model_to_view: bool = True):
     app_name = app.config.get('BACKEND_NAME', 'Backend Core')
-    admin = fadmin.Admin(app, name=app_name, template_mode='bootstrap4')
+    restapi_version = app.config.get('RESTAPI_VERSION')
+    admin = fadmin.Admin(
+                app,
+                name=app_name,
+                url=f'/api/{restapi_version}/admin',
+                template_mode='bootstrap4')
 
     if add_model_to_view:
         import app.database as db_module

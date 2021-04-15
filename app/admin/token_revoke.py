@@ -35,7 +35,7 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
         optional_fields={
             'user_uuid': {'type': 'integer', },
             'target_jti': {'type': 'integer', },
-            'do_delete': {'type': 'string', },
+            'do_delete': {'type': 'boolean', },
         })
     def post(self, req_body: dict):
         restapi_version = flask.current_app.config.get('RESTAPI_VERSION')

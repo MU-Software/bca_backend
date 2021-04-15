@@ -76,7 +76,12 @@
       for(var i = 0; i < inputElements.length; i++){
         var inputElement = inputElements[i];
         console.log(inputElement);
-        if (inputElement.type != "submit") {
+        if (inputElement.type == "checkbox") {
+          if (inputElement.checked) {
+            jsonObject[inputElement.name] = true;
+          }
+        }
+        else if (inputElement.type != "submit") {
           jsonObject[inputElement.name] = inputElement.value;
         }
       }

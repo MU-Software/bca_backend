@@ -81,7 +81,9 @@ class FrostRoutePlugin(apispec.BasePlugin):
                 openapi_resp[resp_case_obj.code]['content']['application/json']['schema']['oneOf'].append(
                     {'$ref': f'#/components/schemas/{resp}'}
                 )
-                openapi_resp[resp_case_obj.code]['description'] += f'### {resp}: {resp_case_obj.description}  \n'
+                response_case_description = f'### {resp}: {resp_case_obj.description}  \n'
+                if response_case_description not in openapi_resp[resp_case_obj.code]['description']:
+                    openapi_resp[resp_case_obj.code]['description'] += f'### {resp}: {resp_case_obj.description}  \n'
             document['responses'] = openapi_resp
 
             if 'tags' not in document:
@@ -160,7 +162,7 @@ def create_openapi_doc():
             routes_cache[route_path] = (str(rule), route_view_class)
             spec.path(path=route_path, view=route_view_class)
 
-    doc_file: pt.Path = pt.Path('doc/openapi3.yaml')
+    doc_file: pt.Path = pt.Path(f'docs/{restapi_version}.yaml')
     if doc_file.exists():
         doc_file.unlink()
 

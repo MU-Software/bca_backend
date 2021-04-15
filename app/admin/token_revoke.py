@@ -36,7 +36,7 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
             'target_jti': {'type': 'integer', },
         })
     def post(self, req_body: dict):
-        if not any(('user_uuid' in req_body), ('target_jti' in req_body)):
+        if not any((('user_uuid' in req_body), ('target_jti' in req_body))):
             CommonResponseCase.body_required_omitted.create_response(
                 message='Need user_uuid or target_jti',
                 data={'lacks': ['user_uuid', 'target_jti']})

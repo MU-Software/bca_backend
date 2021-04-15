@@ -129,9 +129,12 @@ class Response:
         }
 
     def create_response(self,
+                        code: int = None,
                         header: tuple[tuple[str]] = (),
                         data: dict = {},
                         message: typing.Optional[str] = None) -> ResponseType:
+
+        resp_code: int = code if code is not None else self.code
 
         resp_header = (tuple(header.items()) if type(header) == dict else header)
         resp_header += (tuple(self.header.items()) if type(self.header) == dict else tuple(self.header))
@@ -153,7 +156,7 @@ class Response:
             'data': resp_data
         }
 
-        return (flask.jsonify(response_body), self.code, result_header)
+        return (flask.jsonify(response_body), resp_code, result_header)
 
 
 class ResponseCaseCollector(AutoRegisterClass):

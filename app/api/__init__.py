@@ -54,4 +54,4 @@ def init_app(app: flask.Flask):
     for path, route_model in resource_routes.items():
         view_name = route_model.__name__
         view_func = route_model.as_view(view_name)
-        app.add_url_rule('/' + restapi_version + path, view_func=view_func)
+        app.add_url_rule('/api/' + restapi_version + path, view_func=view_func)

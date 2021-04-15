@@ -13,6 +13,6 @@ def init_app(app: flask.Flask):
 import app.api.debug.decorator_debug as decorator_debug  # noqa
 
 resource_route = {
-    f'/api/{restapi_version}/debug/decorator/test/<string:debug_id>': decorator_debug.Debug__DecoratorRoute,
-    f'/api/{restapi_version}/debug/decorator/need-signout': decorator_debug.Debug_UserMustSignOut_DecoratorRoute,
+    '/debug/decorator/test/<string:debug_id>': decorator_debug.Debug__DecoratorRoute,
+    '/debug/decorator/need-signout': decorator_debug.Debug_UserMustSignOut_DecoratorRoute,
 }

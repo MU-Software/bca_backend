@@ -1,4 +1,5 @@
 import datetime
+import flask
 import flask_admin as fadmin
 
 import app.api.helper_class as api_class
@@ -37,6 +38,8 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
             'do_delete': {'type': 'string', },
         })
     def post(self, req_body: dict):
+        restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
+
         if not any((('user_uuid' in req_body), ('target_jti' in req_body))):
             CommonResponseCase.body_required_omitted.create_response(
                 message='Need user_uuid or target_jti',
@@ -76,5 +79,5 @@ class Admin_TokenRevoke_View(fadmin.BaseView):
         return CommonResponseCase.http_ok.create_response(
             code=301,
             header=(
-                ('Location', '/admin/token-revoke'),
+                ('Location', f'/api/{restapi_version}/admin/token-revoke'),
             ))

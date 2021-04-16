@@ -111,7 +111,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-env_collection/
+env_collection/*
+# But except environment file creator
+!env_collection/env_creator.py
 
 # Spyder project settings
 .spyderproject

@@ -249,8 +249,9 @@ class RequestHeader:
                                 flask.current_app.config.get('SECRET_KEY')+csrf_token)
                             kwargs['access_token'] = access_token
                         except jwt.exceptions.ExpiredSignatureError:
-                            if required:
-                                return account_resp_case.AccountResponseCase.access_token_expired()
+                            # AccessToken Expired error must be raised when bearer auth is softly required,
+                            # so that client can re-request after refreshing AccessToken
+                            return account_resp_case.AccountResponseCase.access_token_expired()
                         except Exception as err:
                             if required:
                                 print(err)
@@ -338,11 +339,19 @@ class RequestHeader:
                     'header_required_omitted']
 
             if self.auth:
-                if AuthType.Bearer in self.auth and self.auth[AuthType.Bearer]:
-                    doc_data['responses'] += [
-                        'access_token_expired',
-                        'access_token_invalid',
-                    ]
+                if AuthType.Bearer in self.auth:
+                    if self.auth[AuthType.Bearer]:
+                        doc_data['responses'] += [
+                            'access_token_expired',
+                            'access_token_invalid',
+                        ]
+                    else:
+                        # AccessToken Expired error must be raised when bearer auth is softly required,
+                        # so that client can re-request after refreshing AccessToken
+                        doc_data['responses'] += [
+                            'access_token_expired',
+                        ]
+
                 if AuthType.RefreshToken in self.auth and self.auth[AuthType.RefreshToken]:
                     doc_data['responses'] += [
                         'user_not_signed_in',

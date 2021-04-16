@@ -30,7 +30,7 @@ class FrostRoutePlugin(apispec.BasePlugin):
         operation_result = dict()
         http_mtd: dict[str, typing.Any] = {k: v for k, v in view.__dict__.items() if k in api_class.http_all_method}
 
-        path_tag: str = [z for z in path.split('/') if z][1]
+        path_tag: str = [z for z in path.split('/') if z][2]
 
         path_param_type_def = {
             'list': 'array',

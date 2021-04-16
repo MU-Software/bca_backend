@@ -47,6 +47,6 @@ class AccessTokenIssueRoute(flask.views.MethodView, api_class.MethodViewMixin):
         except Exception:
             return AccountResponseCase.refresh_token_invalid.create_response()
 
-        return AccountResponseCase.user_signed_in.create_response(
+        return AccountResponseCase.access_token_refreshed.create_response(
                     header=response_header,
                     data=response_body)

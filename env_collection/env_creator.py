@@ -99,7 +99,5 @@ if __name__ == '__main__':
     os.chdir(pathlib.Path(__file__).parents[0])
     if len(sys.argv) > 1:
         target_file: str = sys.argv[1]
-    else:
-        target_file: str = 'env.dev.json'
 
-    json_to_envfiles(target_file, 'dev')
+    json_to_envfiles(target_file, target_file.replace('.json', ''))

@@ -56,7 +56,6 @@ class FrostRoutePlugin(apispec.BasePlugin):
                 })
 
         for mtd_name, mtd_func in http_mtd.items():
-            print(mtd_func)
             if not mtd_func.__doc__:
                 raise Exception(f'No docstring on {view.__name__}.{mtd_name}')
 

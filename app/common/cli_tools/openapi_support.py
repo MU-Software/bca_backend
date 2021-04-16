@@ -156,7 +156,7 @@ def create_openapi_doc():
         route_path: str = RE_URL.sub(r"{\1}", str(rule))
         route_path_split: list = [z for z in route_path.split('/') if z]
 
-        if route_path_split[1] == restapi_version and route_path_split[1] != 'debug':
+        if route_path_split[1] == restapi_version and route_path_split[2] != 'debug':
             route_view_class = route_classes[rule.endpoint]
             # for method in rule.methods:
             routes_cache[route_path] = (str(rule), route_view_class)

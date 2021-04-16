@@ -99,5 +99,8 @@ if __name__ == '__main__':
     os.chdir(pathlib.Path(__file__).parents[0])
     if len(sys.argv) > 1:
         target_file: str = sys.argv[1]
+    else:
+        print('Need to specify target environment variables collection file(.json)')
+        os._exit(1)
 
     json_to_envfiles(target_file, target_file.replace('.json', ''))

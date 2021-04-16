@@ -6,6 +6,7 @@ import functools
 import inspect
 import jwt.exceptions
 import typing
+import unicodedata
 import yaml
 
 http_all_method = [
@@ -209,7 +210,8 @@ class RequestHeader:
             try:
                 self.req_header = flask.request.headers
                 # Filter for empty keys and values
-                self.req_header = {k: v for k, v in self.req_header.items() if k and v}
+                self.req_header = {unicodedata.normalize('NFC', k): unicodedata.normalize('NFC', v)
+                                   for k, v in self.req_header.items() if k and v}
 
                 # Check if all required fields are in
                 if (not all([z in self.req_header.keys() for z in self.required_fields])):
@@ -366,7 +368,8 @@ class RequestQuery:
             try:
                 self.req_query = flask.request.args.copy()
                 # Filter for empty keys and values
-                self.req_query = {k: v for k, v in self.req_query.items() if k and v}
+                self.req_query = {unicodedata.normalize('NFC', k): unicodedata.normalize('NFC', v)
+                                  for k, v in self.req_query.items() if k and v}
 
                 # Check if all required fields are in
                 if (not all([z in self.req_query.keys() for z in self.required_fields])):
@@ -449,7 +452,8 @@ class RequestBody:
             try:
                 self.req_body = flask.request.get_json(force=True)
                 # Filter for empty keys and values
-                self.req_body = {k: v for k, v in self.req_body.items() if k and v}
+                self.req_body = {unicodedata.normalize('NFC', k): unicodedata.normalize('NFC', v)
+                                 for k, v in self.req_body.items() if k and v}
 
                 # Check if all required fields are in
                 if (not all([z in self.req_body.keys() for z in self.required_fields])):

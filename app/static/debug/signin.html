@@ -172,7 +172,7 @@
         xhr.open('POST', formElement.action);
         xhr.setRequestHeader('X-Csrf-Token', csrfToken);
         if (accessToken) {
-            xhr.setRequestHeader('Authentication', accessToken);
+            xhr.setRequestHeader('Authorization', accessToken);
         }
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(formData);
@@ -198,7 +198,7 @@
         xhr.open('POST', url);
         xhr.setRequestHeader('X-Csrf-Token', csrfToken);
         if (accessToken) {
-            xhr.setRequestHeader('Authentication', accessToken);
+            xhr.setRequestHeader('Authorization', accessToken);
         }
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(postBody);
@@ -224,7 +224,7 @@
         xhr.open('GET', url);
         xhr.setRequestHeader('X-Csrf-Token', csrfToken);
         if (accessToken) {
-            xhr.setRequestHeader('Authentication', accessToken);
+            xhr.setRequestHeader('Authorization', accessToken);
         }
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send();

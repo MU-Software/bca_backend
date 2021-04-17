@@ -265,7 +265,7 @@ class RequestHeader:
     def __init__(self,
                  required_fields: dict[str, dict[str, str]],
                  optional_fields: dict[str, dict[str, str]] = dict(),
-                 auth: typing.Optional[set[AuthType]] = None):
+                 auth: typing.Optional[dict[AuthType, bool]] = None):
         self.req_header: dict = dict()
         self.required_fields: dict[str, dict[str, str]] = required_fields
         self.optional_fields: dict[str, dict[str, str]] = optional_fields

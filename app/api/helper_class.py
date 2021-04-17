@@ -185,6 +185,82 @@ class AuthType(enum.Enum):
     RefreshToken = enum.auto
 
 
+def json_list_filter(in_list: list, filter_empty_value: bool = True) -> list:
+    result_list: list = list()
+
+    for element in in_list:
+        if type(element) is str:
+            res_value = unicodedata.normalize('NFC', element)
+            if filter_empty_value and not res_value:
+                continue
+            result_list.append(res_value)
+        elif type(element) in (int, float):
+            result_list.append(element)
+        elif type(element) is dict:
+            res_value = json_dict_filter(element)
+            if filter_empty_value and not res_value:
+                continue
+            result_list.append(res_value)
+        elif type(element) is list:
+            res_value = json_list_filter(element)
+            if filter_empty_value and not res_value:
+                continue
+            result_list.append(res_value)
+        elif type(element) is bool:
+            result_list.append(element)
+        elif element is None:
+            if filter_empty_value:
+                continue
+            result_list.append(None)
+        else:
+            raise Exception('This is not a valid list of parsed json.')
+
+    return result_list
+
+
+def json_dict_filter(in_dict: dict, filter_empty_value: bool = True) -> dict:
+    if not in_dict:
+        return dict()
+
+    result_dict: dict = dict()
+    # Check value types and filter a type
+    for k, v in in_dict.items():
+        # key must be a string
+        res_key: str = unicodedata.normalize('NFC', k)
+        if not res_key:
+            continue
+
+        res_value = None
+        # value can be a string, number, object(dict), array(list), boolean(bool), or null(None)
+        # match case please python 3.10
+        if type(v) is str:
+            res_value = unicodedata.normalize('NFC', v)
+            if filter_empty_value and not res_value:
+                continue
+        elif type(v) in (int, float):
+            res_value = v
+        elif type(v) is dict:
+            res_value = json_dict_filter(v, filter_empty_value)
+            if filter_empty_value and not res_value:
+                continue
+        elif type(v) is list:
+            res_value = json_list_filter(v, filter_empty_value)
+            if filter_empty_value and not res_value:
+                continue
+        elif type(v) is bool:
+            res_value = v
+        elif v is None:
+            res_value = None
+            if filter_empty_value:
+                continue
+        else:
+            raise Exception('This is not a valid dict of parsed json.')
+
+        result_dict[res_key] = res_value
+
+    return result_dict
+
+
 class RequestHeader:
     def __init__(self,
                  required_fields: dict[str, dict[str, str]],
@@ -198,20 +274,18 @@ class RequestHeader:
         # if self.auth:
         #     if AuthType.Bearer in self.auth:
         #         if self.auth[AuthType.Bearer]:
-        #             self.required_fields['Authentication'] = {'type': 'string', }
+        #             self.required_fields['Authorization'] = {'type': 'string', }
         #             self.required_fields['X-CSRF-Token'] = {'type': 'string', }
         #         else:
-        #             self.optional_fields['Authentication'] = {'type': 'string', }
+        #             self.optional_fields['Authorization'] = {'type': 'string', }
         #             self.optional_fields['X-CSRF-Token'] = {'type': 'string', }
 
     def __call__(self, func: typing.Callable):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                self.req_header = flask.request.headers
                 # Filter for empty keys and values
-                self.req_header = {unicodedata.normalize('NFC', k): unicodedata.normalize('NFC', v)
-                                   for k, v in self.req_header.items() if k and v}
+                self.req_header = json_dict_filter(flask.request.headers, True)
 
                 # Check if all required fields are in
                 if (not all([z in self.req_header.keys() for z in self.required_fields])):
@@ -233,7 +307,7 @@ class RequestHeader:
             import app.api.account.response_case as account_resp_case  # noqa
             import app.database.jwt as jwt_module  # noqa
 
-            # Check authentication
+            # Check Authorization
             if self.auth:
                 for auth, required in self.auth.items():
                     # We need match-case syntax which is introduced on Python 3.10
@@ -243,7 +317,7 @@ class RequestHeader:
                             return account_resp_case.AccountResponseCase.access_token_invalid.create_response()
 
                         try:
-                            access_token_bearer = flask.request.headers.get('Authentication', '').replace('Bearer ', '')
+                            access_token_bearer = flask.request.headers.get('Authorization', '').replace('Bearer ', '')
                             access_token = jwt_module.AccessToken.from_token(
                                 access_token_bearer,
                                 flask.current_app.config.get('SECRET_KEY')+csrf_token)
@@ -375,10 +449,8 @@ class RequestQuery:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                self.req_query = flask.request.args.copy()
                 # Filter for empty keys and values
-                self.req_query = {unicodedata.normalize('NFC', k): unicodedata.normalize('NFC', v)
-                                  for k, v in self.req_query.items() if k and v}
+                self.req_query = json_dict_filter(flask.request.args.copy(), True)
 
                 # Check if all required fields are in
                 if (not all([z in self.req_query.keys() for z in self.required_fields])):
@@ -459,10 +531,8 @@ class RequestBody:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                self.req_body = flask.request.get_json(force=True)
                 # Filter for empty keys and values
-                self.req_body = {unicodedata.normalize('NFC', k): unicodedata.normalize('NFC', v)
-                                 for k, v in self.req_body.items() if k and v}
+                self.req_body = json_dict_filter(flask.request.get_json(force=True), True)
 
                 # Check if all required fields are in
                 if (not all([z in self.req_body.keys() for z in self.required_fields])):

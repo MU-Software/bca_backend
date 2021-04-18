@@ -1,13 +1,13 @@
-# CUBICO_backend
-Flask project for CUBICO backend
+# B.Ca babackend ckend
+Flask project for B.Ca Project
 
 
 ## Setup & Run
 ### Setup
 #### Windows
 ```POWERSHELL
-git clone "https://github.com/MU-Software/CUBICO_backend.git"
-cd CUBICO_backend
+git clone "https://github.com/bca-lab/bca_backend.git"
+cd bca_backend
 python -m venv ./
 ./Scripts/activate
 python -m pip install -U -r "requirements-dev.txt"
@@ -17,8 +17,8 @@ You have to install git and Python3.9 (or above) to run these commands
 
 #### Debian based(Ubuntu/Linux Mint/etc.)
 ```BASH
-git clone "https://github.com/MU-Software/CUBICO_backend.git"
-cd CUBICO_backend
+git clone "https://github.com/bca-lab/bca_backend.git"
+cd bca_backend
 python3.9 -m venv ./
 source ./bin/activate
 python3.9 -m pip install -U -r "requirements-dev.txt"

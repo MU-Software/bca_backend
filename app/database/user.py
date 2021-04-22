@@ -63,7 +63,7 @@ class User(db_module.DefaultModelMixin, db.Model):
         # We'll trim space on user input, Google also do this.
         # https://ux.stackexchange.com/q/75686
         orig_pw = utils.normalize(orig_pw)
-        new_pw = utils.normalize(new_pw.strip())
+        new_pw = utils.normalize(new_pw)
 
         pw_str_check = utils.is_passwordsafe(new_pw)
         if pw_str_check:

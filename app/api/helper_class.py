@@ -190,7 +190,7 @@ def json_list_filter(in_list: list, filter_empty_value: bool = True) -> list:
 
     for element in in_list:
         if type(element) is str:
-            res_value = unicodedata.normalize('NFC', element)
+            res_value = unicodedata.normalize('NFC', element).strip()
             if filter_empty_value and not res_value:
                 continue
             result_list.append(res_value)
@@ -226,7 +226,7 @@ def json_dict_filter(in_dict: dict, filter_empty_value: bool = True) -> dict:
     # Check value types and filter a type
     for k, v in in_dict.items():
         # key must be a string
-        res_key: str = unicodedata.normalize('NFC', k)
+        res_key: str = unicodedata.normalize('NFC', k).strip()
         if not res_key:
             continue
 
@@ -234,7 +234,7 @@ def json_dict_filter(in_dict: dict, filter_empty_value: bool = True) -> dict:
         # value can be a string, number, object(dict), array(list), boolean(bool), or null(None)
         # match case please python 3.10
         if type(v) is str:
-            res_value = unicodedata.normalize('NFC', v)
+            res_value = unicodedata.normalize('NFC', v).strip()
             if filter_empty_value and not res_value:
                 continue
         elif type(v) in (int, float):

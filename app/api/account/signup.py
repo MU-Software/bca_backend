@@ -8,7 +8,7 @@ import jwt
 
 import app.api.helper_class as api_class
 import app.common.utils as utils
-import app.common.mailgun as mailgun
+import app.common.mailgun.aws_ses as mailgun_aws
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
@@ -107,24 +107,27 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             except Exception:
                 return CommonResponseCase.server_error.create_response()
 
-        mail_sent: bool = True
         try:
-            email_result = flask.render_template(
-                'email/email_verify.html',
-                domain_url=flask.current_app.config.get('SERVER_NAME'),
-                project_name=flask.current_app.config.get('PROJECT_NAME'),
-                user_nick=new_user.nickname,
-                email_key=email_token,
-                language='kor'
-            )
-            mailgun.gmail_send_mail(
-                'musoftware@mudev.cc',
-                new_user.email,
-                f'{flask.current_app.config.get("PROJECT_NAME")}에 오신 것을 환영합니다!',
-                email_result)
-            mail_sent = True
         except Exception:
-            mail_sent = False
+        mail_sent: bool = True
+        if flask.current_app.config.get('MAIL_ENABLE'):
+            try:
+                email_result = flask.render_template(
+                    'email/email_verify.html',
+                    domain_url=flask.current_app.config.get('SERVER_NAME'),
+                    project_name=flask.current_app.config.get('PROJECT_NAME'),
+                    user_nick=new_user.nickname,
+                    email_key=email_token,
+                    language='kor'
+                )
+                mailgun_aws.send_mail(
+                    fromaddr='do-not-reply@' + flask.current_app.config.get('MAIL_DOMAIN'),
+                    toaddr=new_user.email,
+                    subject=f'{flask.current_app.config.get("PROJECT_NAME")}에 오신 것을 환영합니다!',
+                    message=email_result)
+                mail_sent = True
+            except Exception:
+                mail_sent = False
 
         response_header, response_body = jwt_module.create_login_data(
                                             new_user,

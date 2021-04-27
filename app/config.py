@@ -13,7 +13,8 @@ class Config:
     SERVER_NAME = os.environ.get('SERVER_NAME', None)
 
     # Referer is not a typo. See HTTP referer header.
-    REFERER_CHECK = os.environ.get('REFERER_CHECK', True) == 'false'
+    # This will enable only if $env:REFERER_CHECK is 'false'
+    REFERER_CHECK = os.environ.get('REFERER_CHECK', True) != 'false'
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
     DEVELOPMENT_KEY = os.environ.get('DEVELOPMENT_KEY')
     LOCAL_DEV_CLIENT_PORT = None
@@ -29,9 +30,15 @@ class Config:
     REDIS_PORT = int(os.environ.get('REDIS_PORT'))
     REDIS_DB = int(os.environ.get('REDIS_DB'))
 
-    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
-    GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-    GOOGLE_REFRESH_TOKEN = os.environ.get('GOOGLE_REFRESH_TOKEN')
+    # This will enable only if $env:MAIL_ENABLE is 'false'
+    MAIL_ENABLE = os.environ.get('MAIL_ENABLE', True) != 'false'
+    MAIL_DOMAIN = os.environ.get('MAIL_DOMAIN', None)
+
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', None)
+    GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', None)
+    GOOGLE_REFRESH_TOKEN = os.environ.get('GOOGLE_REFRESH_TOKEN', None)
+
+    AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-2')  # Default set to Seoul, Korea (of course, south!)
 
 
 class DevelopmentConfig(Config):

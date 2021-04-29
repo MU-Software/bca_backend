@@ -1,10 +1,13 @@
+import boto3
 import datetime
 import flask
 import flask.views
+import jwt
 from passlib.hash import argon2
 import secrets
 import sqlalchemy as sql
-import jwt
+import sqlite3
+import tempfile
 
 import app.api.helper_class as api_class
 import app.common.utils as utils
@@ -21,6 +24,18 @@ db = db_module.db
 
 # SignUp confirmation email will expire after 48 hours
 signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(hours=48)
+user_sqlite_sql = '''
+CREATE TABLE bca_user (
+    uuid    INTEGER NOT NULL PRIMARY KEY,
+    name    TEXT
+)
+
+CREATE TABLE bca_user_card (
+    uuid    INTEGER NOT NULL PRIMARY KEY,
+    user_id INTEGER NOT NULL ,
+    name    TEXT
+)
+'''
 
 
 class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
@@ -107,8 +122,21 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             except Exception:
                 return CommonResponseCase.server_error.create_response()
 
+        # bca: create user's db file and upload to s3
         try:
+            temp_user_db_file = tempfile.NamedTemporaryFile('w+b', delete=True)
+            temp_user_db = sqlite3.connect(temp_user_db_file.name)
+            temp_user_db.executescript(user_sqlite_sql)
+            temp_user_db.commit()
+            temp_user_db.close()
+            temp_user_db_file.seek(0)
+
+            s3_client = boto3.client('s3')
+            s3_client.upload_fileobj(temp_user_db_file, 'bca-main-s3-1', f'/user_db/{new_user.uuid}/sync_db.sqlite')
         except Exception:
+            # TODO: Do something proper while creating and uploading user db file
+            print('Exception raised while creating user sqlite file')
+
         mail_sent: bool = True
         if flask.current_app.config.get('MAIL_ENABLE'):
             try:

@@ -39,6 +39,7 @@ class Config:
     GOOGLE_REFRESH_TOKEN = os.environ.get('GOOGLE_REFRESH_TOKEN', None)
 
     AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-2')  # Default set to Seoul, Korea (of course, south!)
+    AWS_S3_BUCKET_NAME = os.environ.get('AWS_S3_BUCKET_NAME', None)
 
 
 class DevelopmentConfig(Config):

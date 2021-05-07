@@ -3,6 +3,7 @@
 import datetime
 import email
 import flask
+import hashlib
 import json
 import math
 import string
@@ -131,6 +132,20 @@ def elegant_unpair(z) -> tuple:
     sqz   = sqrtz * sqrtz  # noqa
     return (sqrtz, z - sqz - sqrtz) if (z - sqz) >= sqrtz\
            else (z - sqz, sqrtz)  # noqa
+
+
+# ---------- Hash calculation function ----------
+def fileobj_md5(fp) -> str:
+    hash_md5 = hashlib.md5()
+    fp.seek(0)
+    for chunk in iter(lambda: fp.read(4096), b""):
+        hash_md5.update(chunk)
+    fp.seek(0)
+    return hash_md5.hexdigest()
+
+
+def file_md5(fname: str) -> str:
+    return fileobj_md5(open(fname, 'rb'))
 
 
 # ---------- Custom Exceptions ----------

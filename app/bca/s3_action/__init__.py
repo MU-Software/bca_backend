@@ -149,6 +149,18 @@ def get_user_db(user_id: int) -> typing.Union[tempfile.IO[bytes], io.BytesIO]:
         raise err
 
 
+def get_user_db_md5(user_id: int) -> str:
+    try:
+        bucket_name = flask.current_app.config.get('AWS_S3_BUCKET_NAME')
+        s3 = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
+        return s3.head_object(
+            Bucket=bucket_name,
+            Key=f'/user_db/{user_id}/sync_db.sqlite'
+        )['ETag'][1:-1]
+    except Exception:
+        return False
+
+
 def check_user_db_md5(user_id: int, md5hash: str) -> bool:
     '''
     This function will check argument "md5hash" to MD5 hash of user's db file on S3.
@@ -157,15 +169,7 @@ def check_user_db_md5(user_id: int, md5hash: str) -> bool:
     unless AWS changes their rules.
     See: https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
     '''
-    try:
-        bucket_name = flask.current_app.config.get('AWS_S3_BUCKET_NAME')
-        s3 = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
-        return s3.head_object(
-            Bucket=bucket_name,
-            Key=f'/user_db/{user_id}/sync_db.sqlite'
-        )['ETag'][1:-1] == md5hash
-    except Exception:
-        return False
+    return get_user_db_md5(user_id) == md5hash
 
 
 def delete_user_db(user_id: int) -> None:

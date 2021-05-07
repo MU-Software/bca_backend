@@ -1,7 +1,7 @@
 import app.api.helper_class as api_class
 
 
-class CardResponseCase(api_class.ResponseCaseCollector):
+class SyncResponseCase(api_class.ResponseCaseCollector):
     sync_ok = api_class.Response(
         description='Your profile/card db file is outdated, '
                     'so we sent you a new version of db file.',

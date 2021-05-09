@@ -157,8 +157,14 @@ def get_user_db_md5(user_id: int) -> str:
             Bucket=bucket_name,
             Key=f'/user_db/{user_id}/sync_db.sqlite'
         )['ETag'][1:-1]
+    except botocore.client.ClientError as err:
+        if utils.safe_int(err.response['Error']['Code']) == 404:
+            new_db_file = create_user_db(user_id)
+            if new_db_file:
+                return utils.fileobj_md5(new_db_file)
+        return ''
     except Exception:
-        return False
+        return ''
 
 
 def check_user_db_md5(user_id: int, md5hash: str) -> bool:

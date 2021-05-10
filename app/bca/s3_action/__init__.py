@@ -14,10 +14,13 @@ import app.bca.database.user_db_table as bca_user_db_table
 
 
 def create_user_db(user_id: int,
-                   is_new_user: bool = False,
+                   insert_all_data_from_global_db: bool = False,
                    delete_if_available: bool = False) -> typing.Optional[tempfile.IO[bytes]]:
     # bca: create user's db file and upload to s3
     try:
+        if delete_if_available:
+            delete_user_db(user_id)
+
         # Create temporary file and connection
         temp_user_db_file = tempfile.NamedTemporaryFile('w+b', delete=True)
 
@@ -47,7 +50,7 @@ def create_user_db(user_id: int,
         CardTable.__table__.create(temp_user_db_engine)
         CardSubscriptionTable.__table__.create(temp_user_db_engine)
 
-        if is_new_user:
+        if insert_all_data_from_global_db:
             # Insert data to user db from global db
             # Find user's profiles, and find all card subscriptions using user's profiles.
             user_profiles_query = profile_module.Profile.query\

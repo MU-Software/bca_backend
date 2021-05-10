@@ -53,7 +53,32 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             return SyncResponseCase.sync_ok.create_response(
                 header=(('ETag', utils.fileobj_md5(user_db_file_obj)), ),
-                data={'sqlite_file': base64.b64decode(user_db_file_obj.read())}
+                data={'db': base64.b64decode(user_db_file_obj.read())}
+            )
+
+        except Exception:
+            return CommonResponseCase.server_error.create_response()
+
+    @api_class.RequestHeader(
+        required_fields={'X-Csrf-Token': {'type': 'string', }, },
+        auth={api_class.AuthType.Bearer: True, })
+    def delete(self, req_header: dict, access_token: jwt_module.AccessToken):
+        '''
+        description: Recreate User DB file
+        responses:
+            - sync_ok
+            - sync_latest
+            - server_error
+        '''
+        try:
+            user_db_file_obj = s3_action.create_user_db(access_token.user, True, True)
+            if not user_db_file_obj:
+                raise Exception
+            user_db_file_obj.seek(0)
+
+            return SyncResponseCase.sync_ok.create_response(
+                header=(('ETag', utils.fileobj_md5(user_db_file_obj)), ),
+                data={'db': base64.b64decode(user_db_file_obj.read())}
             )
 
         except Exception:

@@ -1,4 +1,4 @@
-import boto3
+import base64
 import datetime
 import flask
 import flask.views
@@ -6,8 +6,6 @@ import jwt
 from passlib.hash import argon2
 import secrets
 import sqlalchemy as sql
-import sqlite3
-import tempfile
 
 import app.api.helper_class as api_class
 import app.common.utils as utils
@@ -16,6 +14,7 @@ import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
 import app.common.decorator as deco_module
+import app.bca.s3_action as s3_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -24,18 +23,6 @@ db = db_module.db
 
 # SignUp confirmation email will expire after 48 hours
 signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(hours=48)
-user_sqlite_sql = '''
-CREATE TABLE bca_user (
-    uuid    INTEGER NOT NULL PRIMARY KEY,
-    name    TEXT
-)
-
-CREATE TABLE bca_user_card (
-    uuid    INTEGER NOT NULL PRIMARY KEY,
-    user_id INTEGER NOT NULL ,
-    name    TEXT
-)
-'''
 
 
 class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
@@ -123,19 +110,8 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return CommonResponseCase.server_error.create_response()
 
         # bca: create user's db file and upload to s3
-        try:
-            temp_user_db_file = tempfile.NamedTemporaryFile('w+b', delete=True)
-            temp_user_db = sqlite3.connect(temp_user_db_file.name)
-            temp_user_db.executescript(user_sqlite_sql)
-            temp_user_db.commit()
-            temp_user_db.close()
-            temp_user_db_file.seek(0)
-
-            s3_client = boto3.client('s3')
-            s3_client.upload_fileobj(temp_user_db_file, 'bca-main-s3-1', f'/user_db/{new_user.uuid}/sync_db.sqlite')
-        except Exception:
-            # TODO: Do something proper while creating and uploading user db file
-            print('Exception raised while creating user sqlite file')
+        user_db_file = s3_action.create_user_db(new_user.uuid, True, True)
+        user_db_file.seek(0)
 
         mail_sent: bool = True
         if flask.current_app.config.get('MAIL_ENABLE'):
@@ -171,4 +147,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         return response_type.create_response(
                     header=response_header,
-                    data=response_body)
+                    data={
+                        'user': response_body,
+                        'db': base64.b64encode(user_db_file.read())
+                    })

@@ -39,8 +39,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             'pw': {'type': 'string', },
             'nick': {'type': 'string', },
             'email': {'type': 'string', },
-        },
-        optional_fields={'description': {'type': 'string'}, })
+        })
     def post(self, req_header, req_body):
         '''
         description: Sign-up with Email
@@ -69,7 +68,6 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
         new_user.email = req_body['email']
         new_user.id = req_body['id']
         new_user.nickname = req_body['nick']
-        new_user.description = req_body.get('description', None)
         new_user.password = argon2.hash(req_body['pw'])
         new_user.pw_changed_at = sql.func.now()
         new_user.last_login_date = sql.func.now()

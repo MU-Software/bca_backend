@@ -111,7 +111,8 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         # bca: create user's db file and upload to s3
         user_db_file = s3_action.create_user_db(new_user.uuid, True, True)
-        user_db_file.seek(0)
+        if user_db_file:
+            user_db_file.seek(0)
 
         mail_sent: bool = True
         if flask.current_app.config.get('MAIL_ENABLE'):
@@ -133,7 +134,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             except Exception:
                 mail_sent = False
 
-        response_header, response_body = jwt_module.create_login_data(
+        user_data_header, user_data_body = jwt_module.create_login_data(
                                             new_user,
                                             req_header.get('User-Agent'),
                                             req_header.get('X-Csrf-Token'),
@@ -145,9 +146,15 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
         if not mail_sent:
             response_type = AccountResponseCase.user_signed_up_but_mail_error
 
+        response_body = {'user': user_data_body, }
+        response_header = user_data_header
+
+        if user_db_file:
+            response_body['db'] = base64.b64encode(user_db_file.read())
+            response_header = list(response_header)
+            response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
+            response_header = tuple(response_header)
+
         return response_type.create_response(
-                    header=response_header,
-                    data={
-                        'user': response_body,
-                        'db': base64.b64encode(user_db_file.read())
-                    })
+                    header=user_data_header,
+                    data=response_body)

@@ -45,7 +45,10 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='Successfully created a new account. Welcome!',
         code=201, success=True,
         public_sub_code='user.sign_up',
-        data=copy.deepcopy(user_auth_data_template))
+        data={
+            'user': copy.deepcopy(user_auth_data_template),
+            'db': ''
+        })
     user_signed_up_but_mail_error = api_class.Response(  # User signing up success, but sign-up mail did not sent
         description='Successfully created a new account, but we couldn\'t send a confirmation mail.',
         code=201, success=True,
@@ -71,7 +74,9 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='User successfully signed in.',
         code=200, success=True,
         public_sub_code='user.sign_in',
-        data=copy.deepcopy(user_auth_data_template))
+        data={
+            'user': copy.deepcopy(user_auth_data_template),
+        })
     user_wrong_password = api_class.Response(
         description='User typed wrong password.',
         code=401, success=False,
@@ -134,7 +139,9 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='Access token refreshed.',
         code=200, success=True,
         public_sub_code='access_token.refreshed',
-        data=copy.deepcopy(user_auth_data_template))
+        data={
+            'user': copy.deepcopy(user_auth_data_template),
+        })
     access_token_invalid = api_class.Response(
         description='Access token is invalid.',
         code=401, success=False,

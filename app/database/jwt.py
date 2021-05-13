@@ -11,6 +11,7 @@ import typing
 import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
+import app.database.profile as profile_module
 
 db = db_module.db
 redis_db: redis.StrictRedis = db_module.redis_db
@@ -20,7 +21,7 @@ refresh_token_valid_duration: datetime.timedelta = datetime.timedelta(days=61)
 # Access token will expire after 1 hour
 access_token_valid_duration: datetime.timedelta = datetime.timedelta(hours=1)
 
-allowed_claim_in_jwt: list[str] = ['api_ver', 'iss', 'exp', 'user', 'sub', 'jti', 'role']
+allowed_claim_in_jwt: list[str] = ['api_ver', 'iss', 'exp', 'user', 'sub', 'jti', 'role', 'profile_id']
 
 
 class TokenBase:
@@ -38,8 +39,9 @@ class TokenBase:
 
     # Private Claim
     user: int = -1  # Audience, User, Token holder
-    # data: dict
     role: str = ''
+    profile_id: list[int] = []
+    # data: dict
 
     def create_token(self, key: str, algorithm: str = 'HS256') -> str:
         if not self.sub:
@@ -160,6 +162,11 @@ class AccessToken(TokenBase):
         # Access token's JTI must be same with Refresh token's.
         new_token.jti = refresh_token.jti
         new_token.role = refresh_token.role
+        new_token.profile_id = profile_module.Profile.uuid.query\
+            .filter(profile_module.Profile.locked_at != None)\
+            .filter(profile_module.Profile.deleted_at != None)\
+            .filter(profile_module.Profile.user_id == refresh_token.user)\
+            .all()  # noqa
 
         return new_token
 

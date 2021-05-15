@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import string
+import sqlalchemy as sql
 import time
 import traceback
 import typing
@@ -335,3 +336,45 @@ def request_body(required_fields: list[str], optional_fields: list[str] = []) ->
         return req_body
     except Exception:
         return None
+
+
+# ---------- SQLAlchemy helper Function ----------
+def get_model_changes(model):
+    """
+    Return a dictionary containing changes made to the model since it was
+    fetched from the database.
+
+    The dictionary is of the form {'property_name': [old_value, new_value]}
+
+    Example:
+        user = get_user_by_id(420)
+        >>> '<User id=402 email="business_email@gmail.com">'
+        get_model_changes(user)
+        >>> {}
+        user.email = 'new_email@who-dis.biz'
+        get_model_changes(user)
+        >>> {'email': ['business_email@gmail.com', 'new_email@who-dis.biz']}
+
+    FROM https://stackoverflow.com/a/56351576
+    """
+    state = sql.inspect(model)
+    changes = {}
+
+    for attr in state.attrs:
+        hist = state.get_history(attr.key, True)
+
+        if not hist.has_changes():
+            continue
+
+        old_value = hist.deleted[0] if hist.deleted else None
+        new_value = hist.added[0] if hist.added else None
+        changes[attr.key] = [old_value, new_value]
+
+    return changes
+
+
+def has_model_changed(model):
+    """
+    Return True if there are any unsaved changes on the model.
+    """
+    return bool(get_model_changes(model))

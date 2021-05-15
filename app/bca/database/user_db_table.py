@@ -15,7 +15,7 @@ class Profile:
     phone = sql.Column(sql.String, nullable=True)  # Phone of Profile
     sns = sql.Column(sql.String, nullable=True)  # SNS Account of profile (in json)
     description = sql.Column(sql.String, nullable=True)  # Profile description
-    data = sql.Column(sql.String, nullable=True)  # Profile additional data (in json)
+    data = sql.Column(sql.String, nullable=False)  # Profile additional data (in json)
 
     commit_id = sql.Column(sql.String, nullable=False, default=secrets.token_hex, onupdate=secrets.token_hex)
     created_at = sql.Column(sql.DateTime, nullable=False, default=sql.func.now())
@@ -38,8 +38,8 @@ class Card:
     uuid = sql.Column(sql.Integer, primary_key=True, nullable=False)
     profile_id = sql.Column(sql.Integer, sql.ForeignKey('TB_PROFILE.uuid'), nullable=False)
 
-    name = sql.Column(sql.String, nullable=False)
-    data = sql.Column(sql.String, nullable=False)
+    name = sql.Column(sql.String, nullable=False, unique=True)
+    data = sql.Column(sql.String, nullable=False, unique=True)
     preview_url = sql.Column(sql.String, nullable=False, unique=True)
 
     commit_id = sql.Column(sql.String, nullable=False, default=secrets.token_hex, onupdate=secrets.token_hex)

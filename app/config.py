@@ -40,6 +40,7 @@ class Config:
 
     AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-2')  # Default set to Seoul, Korea (of course, south!)
     AWS_S3_BUCKET_NAME = os.environ.get('AWS_S3_BUCKET_NAME', None)
+    AWS_TASK_SQS_URL = os.environ.get('AWS_TASK_SQS_URL', None)
 
 
 class DevelopmentConfig(Config):

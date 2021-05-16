@@ -43,3 +43,20 @@ class CardResponseCase(api_class.ResponseCaseCollector):
         code=204, success=True,
         public_sub_code='card.deleted',
         data={'id': 0})
+
+    card_subscribed = api_class.Response(
+        description='Target profile successfully subscribes a card',
+        code=201, success=True,
+        public_sub_code='card.subscribed')
+    card_already_subscribed = api_class.Response(
+        description='Target profile already subscribed a card',
+        code=201, success=True,
+        public_sub_code='card.already_subscribed')
+    card_unsubscribed = api_class.Response(
+        description='Target profile successfully unsubscribes a card',
+        code=204, success=True,
+        public_sub_code='card.unsubscribed')
+    card_not_subscribing = api_class.Response(
+        description='Target profile isn\'t subscribing a card',
+        code=404, success=False,
+        public_sub_code='card.not_subscribing')

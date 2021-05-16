@@ -15,6 +15,34 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @api_class.RequestHeader(
         required_fields={'X-Csrf-Token': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
+    def get(self, req_header: dict, access_token: jwt_module.AccessToken):
+        '''
+        description: Get user's all profiles
+        responses:
+            - profile_multiple_found
+            - profile_not_found
+            - server_error
+        '''
+        try:
+            target_profiles: list[profile_module.Profile] = profile_module.Profile.query\
+                .filter(profile_module.Profile.user_id == access_token.user)\
+                .filter(profile_module.Profile.locked_at != None)\
+                .filter(profile_module.Profile.deleted_at != None)\
+                .all()  # noqa
+            if not target_profiles:
+                return ProfileResponseCase.profile_not_found.create_response(
+                            message='You don\'t have any profiles yet')
+
+            return ProfileResponseCase.profile_multiple_found.create_response(
+                        data={'profiles': [profile.to_dict() for profile in target_profiles], })
+
+        except Exception:
+            # TODO: Check DB error
+            CommonResponseCase.server_error.create_response()
+
+    @api_class.RequestHeader(
+        required_fields={'X-Csrf-Token': {'type': 'string', }, },
+        auth={api_class.AuthType.Bearer: True, })
     @api_class.RequestBody(
         required_fields={'name': {'type': 'string', }, },
         optional_fields={
@@ -22,9 +50,8 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             'phone': {'type': 'string', },
             'sns': {'type': 'string', },
             'description': {'type': 'string', },
-            'additional_data': {'type': 'string', },
-            'private': {'type': 'boolean', },
-        })
+            'data': {'type': 'string', },
+            'private': {'type': 'boolean', }, })
     def post(self,
              req_header: dict,
              access_token: jwt_module.AccessToken,
@@ -32,7 +59,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
         '''
         description: Create new profile
         responses:
-            - access_token_invalid
+            - user_not_found
             - profile_created
             - server_error
         '''
@@ -44,7 +71,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(user_module.User.locked_at is not None)\
                 .first()
             if not target_user:
-                return AccountResponseCase.access_token_invalid.create_response()
+                return AccountResponseCase.user_not_found.create_response()
 
             new_profile = profile_module.Profile()
             new_profile.user_id = access_token.user
@@ -59,11 +86,8 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db_module.db.session.commit()
 
             return ProfileResponseCase.profile_created.create_response(
-                data=new_profile.to_dict(),
-                header=(
-                    ('ETag', new_profile.commit_id),
-                    ('Last-Modified', new_profile.modified_at),
-                ))
+                data={'profile': new_profile.to_dict(), },
+                header=(('ETag', new_profile.commit_id), ))
         except Exception:
             # TODO: Check DB error
             return CommonResponseCase.server_error.create_response()

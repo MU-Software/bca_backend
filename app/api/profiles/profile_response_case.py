@@ -6,6 +6,10 @@ class ProfileResponseCase(api_class.ResponseCaseCollector):
         description='Profile you requested found.',
         code=200, success=True,
         public_sub_code='profile.result')
+    multiple_profiles_found = api_class.Response(
+        description='Multiple profiles you requested found',
+        code=200, success=True,
+        public_sub_code='profile.multiple_results')
     profile_not_found = api_class.Response(
         description='Profile you requested couldn\'t be found.',
         code=404, success=False,

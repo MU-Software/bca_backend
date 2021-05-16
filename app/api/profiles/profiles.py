@@ -19,7 +19,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
         '''
         description: Get user's all profiles
         responses:
-            - profile_multiple_found
+            - multiple_profiles_found
             - profile_not_found
             - server_error
         '''
@@ -33,7 +33,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ProfileResponseCase.profile_not_found.create_response(
                             message='You don\'t have any profiles yet')
 
-            return ProfileResponseCase.profile_multiple_found.create_response(
+            return ProfileResponseCase.multiple_profiles_found.create_response(
                         data={'profiles': [profile.to_dict() for profile in target_profiles], })
 
         except Exception:
@@ -86,8 +86,8 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db_module.db.session.commit()
 
             return ProfileResponseCase.profile_created.create_response(
-                data={'profile': new_profile.to_dict(), },
-                header=(('ETag', new_profile.commit_id), ))
+                header=(('ETag', new_profile.commit_id), ),
+                data={'profile': new_profile.to_dict(), })
         except Exception:
             # TODO: Check DB error
             return CommonResponseCase.server_error.create_response()

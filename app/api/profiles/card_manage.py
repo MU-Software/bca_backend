@@ -45,21 +45,21 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if not access_token:
                     return CardResponseCase.card_forbidden.create_response()
 
-                if access_token.role not in ('admin', ):
-                    if target_card.profile_id not in access_token.profile_id:
-                        # if user subscribed this private card, then show it.
-                        if not profile_module.CardSubscribed.query\
-                                .filter(profile_module.Card.card_id == card_id)\
-                                .filter(profile_module.Card.profile_id.in_(access_token.profile_id))\
-                                .scalar():
-                            return CardResponseCase.card_forbidden.create_response()
+                # Private or deleted cards can be seen only by card subscriber, profile owner and admin
+                if access_token.role not in ('admin', ) and target_card.profile_id not in access_token.profile_id:
+                    # if user subscribed this private card, then show it.
+                    if not profile_module.CardSubscribed.query\
+                            .filter(profile_module.Card.card_id == card_id)\
+                            .filter(profile_module.Card.profile_id.in_(access_token.profile_id))\
+                            .scalar():
+                        return CardResponseCase.card_forbidden.create_response()
 
-            card_data = target_card.to_dict()
             return CardResponseCase.card_found.create_response(
-                data={'card': {str(card_id): card_data}},
-                header=(('ETag', target_card.commit_id), ))
+                header=(('ETag', target_card.commit_id), ),
+                data={'card': target_card.to_dict()}, )
         except Exception:
-            return CommonResponseCase.db_error.create_response()
+            # TODO: Check DB error
+            return CommonResponseCase.server_error.create_response()
 
     # @api_class.RequestHeader(
     #     required_fields={
@@ -112,12 +112,6 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
             target_card.deleted_by_id = access_token.user
             db_module.db.session.commit()
-
-            # TODO: Create lambda function calls to remove other user's db file
-            subscribed_users = target_card.subscribed_user_relations
-            for target_working_user in subscribed_users:
-                # TODO: DO SOMETHING!
-                pass
 
             return CardResponseCase.card_deleted.create_response(data={'id': target_card.uuid})
         except Exception:

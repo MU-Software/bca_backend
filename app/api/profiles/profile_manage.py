@@ -46,18 +46,13 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
                 if access_token.role not in ('admin', ) and target_profile.user_id != access_token.user:
                     # Find all target profile's card, and find any relations of requested user and those cards
-                    profile_subscription_subquery_1 = profile_module.Card.query\
+                    target_profile_cards_subquery = profile_module.Card.query\
                         .filter(profile_module.Card.profile_id == target_profile.uuid)\
                         .filter(profile_module.Card.locked_at != None)\
                         .subquery()  # noqa
-                    profile_subscription_subquery_2 = profile_module.Profile.query\
-                        .filter(profile_module.Profile.user_id == access_token.user)\
-                        .filter(profile_module.Card.locked_at != None)\
-                        .filter(profile_module.Card.deleted_at != None)\
-                        .subquery()  # noqa
                     profile_subscription = profile_module.CardSubscribed.query\
-                        .filter(profile_module.CardSubscribed.card_id.in_(profile_subscription_subquery_1))\
-                        .filter(profile_module.CardSubscribed.profile_id.in_(profile_subscription_subquery_2))\
+                        .filter(profile_module.CardSubscribed.card_id.in_(target_profile_cards_subquery))\
+                        .filter(profile_module.CardSubscribed.profile_id.in_(access_token.profile_id))\
                         .scalar()
                     if not profile_subscription:
                         return ProfileResponseCase.profile_forbidden.create_response()

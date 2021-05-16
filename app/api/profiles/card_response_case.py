@@ -6,6 +6,10 @@ class CardResponseCase(api_class.ResponseCaseCollector):
         description='Card you requested found.',
         code=200, success=True,
         public_sub_code='card.result')
+    multiple_cards_found = api_class.Response(
+        description='Multiple cards you requested found',
+        code=200, success=True,
+        public_sub_code='card.multiple_results')
     card_not_found = api_class.Response(
         description='Card you requested couldn\'t be found.',
         code=404, success=False,

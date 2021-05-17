@@ -58,27 +58,13 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                         return ProfileResponseCase.profile_forbidden.create_response()
 
             return ProfileResponseCase.profile_found.create_response(
-                data={'profile': target_profile.to_dict(), },
-                header=(('ETag', target_profile.commit_id), ))
+                header=(('ETag', target_profile.commit_id), ),
+                data={'profile': target_profile.to_dict(), })
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
     # # Modify post
     # def patch(self, post_id: int):
-    #     post_req = utils.request_body(
-    #         required_fields=[],
-    #         optional_fields=[
-    #             'title', 'body',
-    #             'announcement', 'private', 'commentable'])
-    #     if type(post_req) == list:
-    #         return CommonResponseCase.body_required_omitted.create_response(data={'lacks': post_req})
-    #     elif post_req is None:
-    #         return CommonResponseCase.body_invalid.create_response()
-    #     elif not post_req:
-    #         return CommonResponseCase.body_empty.create_response()
-    #     elif type(post_req) != dict:
-    #         return CommonResponseCase.body_invalid.create_response()
-
     #     target_post: board_module.Post = None
     #     try:
     #         target_post = board_module.Post.query\

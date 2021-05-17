@@ -8,6 +8,7 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
+import app.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.card_response_case import CardResponseCase
@@ -111,6 +112,9 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             target_card.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
             target_card.deleted_by_id = access_token.user
+            target_card.why_deleted = 'SELF_DELETED'
+
+            sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
             return CardResponseCase.card_deleted.create_response()

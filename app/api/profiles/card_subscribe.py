@@ -7,6 +7,7 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
+import app.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.card_response_case import CardResponseCase
@@ -63,6 +64,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_subscription.card_id = target_card.uuid
 
             db_module.db.session.add(new_subscription)
+            sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
         except Exception:
@@ -100,6 +102,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return CardResponseCase.card_not_subscribing.create_response()
 
             db_module.db.session.delete(target_card_subscription)
+            sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
             return CardResponseCase.card_unsubscribed.create_response()

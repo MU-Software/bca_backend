@@ -8,6 +8,7 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
+import app.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.profile_response_case import ProfileResponseCase
@@ -150,6 +151,9 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Delete this profile
             target_profile.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
             target_profile.deleted_by_id = access_token.user
+            target_profile.why_deleted = 'SELF_DELETED'
+
+            sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
             return ProfileResponseCase.profile_deleted.create_response()

@@ -1,5 +1,6 @@
 import copy
 import dataclasses
+import datetime
 import enum
 import flask
 import functools
@@ -9,6 +10,18 @@ import typing
 import unicodedata
 import yaml
 
+
+openapi_type_def: dict[type, str] = {
+    str: 'string',
+    bool: 'boolean',
+    int: 'integer',
+    float: 'number',
+    list: 'array',
+    dict: 'object',
+
+    # Below will be automatically converted by jsonify
+    datetime.datetime: 'string'
+}
 http_all_method = [
     'get', 'head', 'post', 'put',
     'delete', 'connect', 'options',
@@ -17,27 +30,21 @@ ResponseType = tuple[typing.Any, int, tuple[tuple[str, str]]]
 
 
 def recursive_dict_to_openapi_obj(in_dict: dict):
-    type_def: dict[type, str] = {
-        str: 'string',
-        bool: 'boolean',
-        int: 'integer',
-        float: 'number',
-        list: 'array',
-        dict: 'object',
-    }
-
     result_dict: dict = dict()
     for k, v in in_dict.items():
-        result_dict[k] = {'type': type_def[type(v)], }
+        result_dict[k] = {'type': openapi_type_def[type(v)], }
         if v:
             if type(v) == dict:
                 result_dict[k]['properties'] = recursive_dict_to_openapi_obj(v)
             elif type(v) == list:
-                result_dict[k]['items'] = {'type': type_def[type(v[0])], }
+                result_dict[k]['items'] = {'type': openapi_type_def[type(v[0])], }
                 if type(v[0]) == dict:
                     result_dict[k]['properties'] = recursive_dict_to_openapi_obj(v[0])
             else:
-                result_dict[k]['enum'] = [v, ]
+                if type(v) is datetime.datetime:
+                    result_dict[k]['enum'] = [v.strftime("%a, %d %b %Y %H:%M:%S GMT"), ]
+                else:
+                    result_dict[k]['enum'] = [v, ]
 
     return result_dict
 
@@ -162,6 +169,31 @@ class Response:
 
 class ResponseCaseCollector(AutoRegisterClass):
     _base_class = 'ResponseCaseCollector'
+
+
+class ResponseDataModel:
+    @classmethod
+    def get_model_openapi_description(cls: typing.Type[dataclasses.dataclass]) -> dict:
+        if not dataclasses.is_dataclass(cls):
+            raise TypeError(f'Expected {str(type(cls))} as a dataclass instance, it\'s not.')
+
+        result = dict()
+        for name, field in cls.__dataclass_fields__.items():
+            if type(field.type) is typing.GenericAlias:
+                field.type = type(field.type())
+
+            if field.type not in openapi_type_def:
+                raise TypeError('Model field type must be one of these types, not {str(type(field.type))}'
+                                '(str, bool, int, float, list, dict)')
+
+            if field.type is dict and field.default_factory:
+                result[name] = field.default_factory()
+            elif field.type is datetime.datetime:
+                result[name] = datetime.datetime.now()
+            else:
+                result[name] = field.type()
+
+        return result
 
 
 from app.api.response_case import CommonResponseCase  # noqa

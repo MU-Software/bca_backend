@@ -323,12 +323,6 @@ def create_login_data(user_data: user_module.User,
     access_token_jwt = access_token.create_token(key+csrf_token, algorithm, True)
 
     response_data.update({
-        'email': refresh_token.usertable.email,
-        'id': refresh_token.usertable.id,
-        'nick': refresh_token.usertable.nickname,
-        'uuid': refresh_token.usertable.uuid,
-        'profileImageURL': refresh_token.usertable.profile_image,
-
         'refresh_token': {
             'exp': refresh_token.exp
         },
@@ -408,12 +402,6 @@ def refresh_login_data(refresh_token_jwt: str,
     access_token_jwt = access_token.create_token(key+csrf_token, algorithm, True)
 
     response_data.update({
-        'email': refresh_token.usertable.email,
-        'id': refresh_token.usertable.id,
-        'nick': refresh_token.usertable.nickname,
-        'uuid': refresh_token.usertable.uuid,
-        'profileImageURL': refresh_token.usertable.profile_image,
-
         'refresh_token': {
             'exp': refresh_token.exp
         },

@@ -113,6 +113,6 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.deleted_by_id = access_token.user
             db_module.db.session.commit()
 
-            return CardResponseCase.card_deleted.create_response(data={'id': target_card.uuid})
+            return CardResponseCase.card_deleted.create_response()
         except Exception:
             return CommonResponseCase.server_error.create_response()

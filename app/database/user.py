@@ -157,6 +157,19 @@ class User(db_module.DefaultModelMixin, db.Model):
             db.session.rollback()
             return self, 'DB_ERROR'
 
+    def to_dict(self):
+        return {
+            'uuid': self.uuid,
+            'id': self.id,
+            'nickname': self.nickname,
+            'email': self.email,
+            'description': self.description,
+            'profile_image': self.profile_image,
+
+            'created_at': self.created_at,
+            'modified_at': self.modified_at
+        }
+
 
 class EmailToken(db_module.DefaultModelMixin, db.Model):
     __tablename__ = 'TB_EMAILTOKEN'

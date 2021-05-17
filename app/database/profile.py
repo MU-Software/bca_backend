@@ -59,7 +59,7 @@ class Profile(db_module.DefaultModelMixin, db.Model):
 
     def to_dict(self):
         result = {
-            'id': self.uuid,
+            'uuid': self.uuid,
             'name': self.uuid,
             'description': self.uuid,
             'phone': self.uuid,
@@ -121,7 +121,7 @@ class Card(db_module.DefaultModelMixin, db.Model):
 
     def to_dict(self, profile_id: int = None) -> dict:
         result = {
-            'id': self.uuid,
+            'uuid': self.uuid,
             'profile_name': self.profile.name,  # TODO: MUST DO QUERY OPTIMIZATION!!!
             'card_name': self.name,
             'data': self.data,

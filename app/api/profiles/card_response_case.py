@@ -1,23 +1,38 @@
+import dataclasses
+import datetime
+
+import app.common.utils as utils
 import app.api.helper_class as api_class
+
+
+@dataclasses.dataclass
+class CardResponseModel(utils.ResponseDataModel):
+    uuid: int
+    profile_name: str
+    card_name: str
+    data: dict[str, str]
+    preview_url: str
+
+    created_at: datetime.datetime
+    modified_at: datetime.datetime
+    modified: bool
 
 
 class CardResponseCase(api_class.ResponseCaseCollector):
     card_found = api_class.Response(
         description='Card you requested found.',
         code=200, success=True,
-        public_sub_code='card.result')
+        public_sub_code='card.result',
+        data={'card': CardResponseModel.get_model_openapi_description()})
     multiple_cards_found = api_class.Response(
         description='Multiple cards you requested found',
         code=200, success=True,
-        public_sub_code='card.multiple_results')
+        public_sub_code='card.multiple_results',
+        data={'cards': [CardResponseModel.get_model_openapi_description()]})
     card_not_found = api_class.Response(
         description='Card you requested couldn\'t be found.',
         code=404, success=False,
         public_sub_code='card.not_found')
-    # card_list = api_class.Response(
-    #     description='This is a list of cards.',
-    #     code=200, success=True,
-    #     public_sub_code='card.list')
 
     card_forbidden = api_class.Response(
         description='You don\'t have permissions to do such thing on this card.',
@@ -32,17 +47,16 @@ class CardResponseCase(api_class.ResponseCaseCollector):
         description='We successfully created a card.',
         code=201, success=True,
         public_sub_code='card.created',
-        data={'id': 0})
+        data={'card': CardResponseModel.get_model_openapi_description()})
     card_modified = api_class.Response(
         description='We successfully modified a card.',
         code=201, success=True,
         public_sub_code='card.modified',
-        data={'id': 0})
+        data={'card': CardResponseModel.get_model_openapi_description()})
     card_deleted = api_class.Response(
         description='We successfully deleted a card.',
         code=204, success=True,
-        public_sub_code='card.deleted',
-        data={'id': 0})
+        public_sub_code='card.deleted')
 
     card_subscribed = api_class.Response(
         description='Target profile successfully subscribes a card',

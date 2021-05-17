@@ -1,8 +1,9 @@
+import dataclasses
+import datetime
 import os
-import copy
 
-import app.api.helper_class as api_class
 import app.common.utils as utils
+import app.api.helper_class as api_class
 
 server_name = os.environ.get('SERVER_NAME')
 restapi_version = os.environ.get('RESTAPI_VERSION')
@@ -15,17 +16,21 @@ refresh_token_remover_cookie = utils.delete_cookie(
                                     secure=True)
 delete_refresh_token: tuple[str, str] = ('Set-Cookie', refresh_token_remover_cookie)
 
-user_auth_data_template: dict = {
-            'email': '', 'id': '',
-            'nick': '', 'uuid': 0,
-            'profileImageURL': '',
 
-            'refresh_token': {'exp': 'DATETIME', },
-            'access_token': {
-                'token': '',
-                'exp': 'DATETIME',
-            },
-        }
+@dataclasses.dataclass
+class UserResponseModel(utils.ResponseDataModel):
+    uuid: int
+    id: str
+    nickname: str
+    email: str
+    description: str
+    profile_image: str
+
+    created_at: datetime.datetime
+    modified_at: datetime.datetime
+
+    refresh_token: dict = dataclasses.field(default_factory=lambda: {'exp': str, })
+    access_token: dict = dataclasses.field(default_factory=lambda: {'exp': str, 'token': str, })
 
 
 class AccountResponseCase(api_class.ResponseCaseCollector):
@@ -45,14 +50,14 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='Successfully created a new account. Welcome!',
         code=201, success=True,
         public_sub_code='user.sign_up',
-        data={
-            'user': copy.deepcopy(user_auth_data_template),
-            'db': ''
-        })
+        data={'user': UserResponseModel.get_model_openapi_description(),
+              'db': '', })
     user_signed_up_but_mail_error = api_class.Response(  # User signing up success, but sign-up mail did not sent
         description='Successfully created a new account, but we couldn\'t send a confirmation mail.',
         code=201, success=True,
-        public_sub_code='user.sign_up_but_mail_error')
+        public_sub_code='user.sign_up_but_mail_error',
+        data={'user': UserResponseModel.get_model_openapi_description(),
+              'db': '', })
 
     user_safe_to_use = api_class.Response(
         description='No one isn\'t using user-wanted nick/id/email address, so you can use it.',
@@ -74,9 +79,8 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='User successfully signed in.',
         code=200, success=True,
         public_sub_code='user.sign_in',
-        data={
-            'user': copy.deepcopy(user_auth_data_template),
-        })
+        data={'user': UserResponseModel.get_model_openapi_description(),
+              'db': '', })
     user_wrong_password = api_class.Response(
         description='User typed wrong password.',
         code=401, success=False,
@@ -139,9 +143,7 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='Access token refreshed.',
         code=200, success=True,
         public_sub_code='access_token.refreshed',
-        data={
-            'user': copy.deepcopy(user_auth_data_template),
-        })
+        data={'user': UserResponseModel.get_model_openapi_description(), })
     access_token_invalid = api_class.Response(
         description='Access token is invalid.',
         code=401, success=False,

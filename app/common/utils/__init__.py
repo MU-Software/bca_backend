@@ -314,30 +314,6 @@ class Struct:
         self.__dict__.update(entries)
 
 
-# ---------- Request body parser Function ----------
-def request_body(required_fields: list[str], optional_fields: list[str] = []) -> typing.Union[dict, list, None]:
-    '''
-    return type
-        - dict: parsed request body
-        - list: required but not contained fields
-        - None: parse error
-    '''
-    try:
-        req_body = flask.request.get_json(force=True)
-        req_body = {k: v for k, v in req_body.items() if k and v}  # basic filter for empty keys and values
-
-        # Check if all required fields are in
-        if (not all([z in req_body.keys() for z in required_fields])):
-            return [z for z in required_fields if z not in req_body]
-
-        # Remove every field not in required and optional fields
-        req_body = {k: req_body[k] for k in req_body if k in required_fields + optional_fields}
-
-        return req_body
-    except Exception:
-        return None
-
-
 # ---------- SQLAlchemy helper Function ----------
 def get_model_changes(model):
     """

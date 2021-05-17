@@ -164,7 +164,7 @@ class CardSubscribed(db_module.DefaultModelMixin, db.Model):
     profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
     profile: Profile = db.relationship('Profile',
                                        primaryjoin=profile_id == Profile.uuid,
-                                       backref=db.backref('cards',
+                                       backref=db.backref('card_subscribing',
                                                           order_by='CardSubscribed.created_at.desc()'))
 
     @classmethod

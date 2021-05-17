@@ -132,7 +132,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             except Exception:
                 mail_sent = False
 
-        user_data_header, user_data_body = jwt_module.create_login_data(
+        jwt_data_header, jwt_data_body = jwt_module.create_login_data(
                                             new_user,
                                             req_header.get('User-Agent'),
                                             req_header.get('X-Csrf-Token'),
@@ -140,19 +140,18 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
+        response_body = {'user': new_user.to_dict()}
+        response_body['user'].update(jwt_data_body)
+
+        if user_db_file:
+            user_db_file.seek(0)
+            response_body['db'] = base64.b64encode(user_db_file.read())
+            response_header = list(jwt_data_header)
+            response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
+            response_header = tuple(response_header)
+
         response_type: api_class.Response = AccountResponseCase.user_signed_up
         if not mail_sent:
             response_type = AccountResponseCase.user_signed_up_but_mail_error
 
-        response_body = {'user': user_data_body, }
-        response_header = user_data_header
-
-        if user_db_file:
-            response_body['db'] = base64.b64encode(user_db_file.read())
-            response_header = list(response_header)
-            response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
-            response_header = tuple(response_header)
-
-        return response_type.create_response(
-                    header=user_data_header,
-                    data=response_body)
+        return response_type.create_response(header=jwt_data_header, data=response_body)

@@ -1,3 +1,4 @@
+import base64
 import flask
 import flask.views
 
@@ -5,7 +6,9 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
+import app.common.utils as utils
 import app.common.decorator as deco_module
+import app.bca.s3_action as s3_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -58,7 +61,7 @@ class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return CommonResponseCase.db_error.create_response()
             return CommonResponseCase.server_error.create_response()
 
-        response_header, response_body = jwt_module.create_login_data(
+        jwt_data_header, jwt_data_body = jwt_module.create_login_data(
                                             account_result,
                                             req_header.get('User-Agent'),
                                             req_header.get('X-Csrf-Token'),
@@ -66,6 +69,16 @@ class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
                                             flask.request.remote_addr,
                                             flask.current_app.config.get('SECRET_KEY'))
 
+        response_body = {'user': account_result.to_dict()}
+        response_body['user'].update(jwt_data_body)
+
+        user_db_file = s3_action.get_user_db(account_result.uuid)
+        if user_db_file:
+            user_db_file.seek(0)
+            response_body['db'] = base64.b64encode(user_db_file.read())
+            response_header = list(jwt_data_header)
+            response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
+            response_header = tuple(response_header)
+
         return AccountResponseCase.user_signed_in.create_response(
-                    header=response_header,
-                    data=response_body)
+                    header=jwt_data_header, data=response_body)

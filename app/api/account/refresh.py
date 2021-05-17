@@ -6,6 +6,7 @@ import jwt.exceptions
 import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
+import app.database.user as user_module
 
 from app.api.account.response_case import AccountResponseCase
 
@@ -35,18 +36,26 @@ class AccessTokenIssueRoute(flask.views.MethodView, api_class.MethodViewMixin):
             return AccountResponseCase.user_not_signed_in.create_response()
 
         try:
-            response_header, response_body = jwt_module.refresh_login_data(
+            target_user: user_module.User = user_module.User.query\
+                .filter(user_module.User.locked_at == None)\
+                .filter(user_module.User.deactivated_at == None)\
+                .filter(user_module.User.uuid == refresh_token.user)\
+                .first()  # noqa
+            if not target_user:
+                return AccountResponseCase.refresh_token_invalid.create_response()
+
+            jwt_data_header, jwt_data_body = jwt_module.refresh_login_data(
                                                 refresh_token_cookie,
                                                 req_header.get('User-Agent'),
                                                 req_header.get('X-Csrf-Token'),
                                                 req_header.get('X-Client-Token', None),
                                                 flask.request.remote_addr,
                                                 flask.current_app.config.get('SECRET_KEY'))
+            response_body = {'user': jwt_data_body}
+            response_body['user'].update(target_user.to_dict())
+            return AccountResponseCase.access_token_refreshed.create_response(
+                        header=jwt_data_header, data=jwt_data_body)
         except jwt.exceptions.ExpiredSignatureError:
             return AccountResponseCase.refresh_token_expired.create_response()
         except Exception:
             return AccountResponseCase.refresh_token_invalid.create_response()
-
-        return AccountResponseCase.access_token_refreshed.create_response(
-                    header=response_header,
-                    data=response_body)

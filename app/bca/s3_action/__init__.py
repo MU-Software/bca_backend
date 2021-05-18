@@ -15,7 +15,7 @@ import app.bca.database.user_db_table as bca_user_db_table
 
 def create_user_db(user_id: int,
                    insert_all_data_from_global_db: bool = False,
-                   delete_if_available: bool = False) -> typing.Optional[tempfile.IO[bytes]]:
+                   delete_if_available: bool = False) -> typing.Optional[typing.IO[bytes]]:
     # bca: create user's db file and upload to s3
     try:
         if delete_if_available:
@@ -136,7 +136,7 @@ def create_user_db(user_id: int,
         return None
 
 
-def get_user_db(user_id: int) -> typing.Union[tempfile.IO[bytes], io.BytesIO]:
+def get_user_db(user_id: int) -> typing.Union[typing.IO[bytes], io.BytesIO]:
     bucket_name = flask.current_app.config.get('AWS_S3_BUCKET_NAME')
     s3 = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
     temp_db_file: io.BytesIO = io.BytesIO()

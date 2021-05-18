@@ -186,7 +186,7 @@ class ResponseDataModel:
                 raise TypeError('Model field type must be one of these types, not {str(type(field.type))}'
                                 '(str, bool, int, float, list, dict)')
 
-            if field.type is dict and field.default_factory:
+            if field.type is dict and field.default_factory not in (dataclasses.MISSING, dataclasses._MISSING_TYPE):
                 result[name] = field.default_factory()
             elif field.type is datetime.datetime:
                 result[name] = datetime.datetime.now()

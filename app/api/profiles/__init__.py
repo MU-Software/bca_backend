@@ -9,5 +9,5 @@ resource_route = {
     '/profiles/<int:profile_id>': profile_manage.ProfileManagementRoute,
     '/profiles/<int:profile_id>/cards': cards.CardMainRoute,
     '/profiles/<int:profile_id>/cards/<int:card_id>': card_manage.CardManagementRoute,
-    '/profiles/<int:profile_id>/cards/<int:card_id>/subscribe': card_subscribe,
+    '/profiles/<int:profile_id>/cards/<int:card_id>/subscribe': card_subscribe.CardSubsctiptionRoute,
 }

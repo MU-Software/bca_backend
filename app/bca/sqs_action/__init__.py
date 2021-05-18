@@ -23,7 +23,7 @@ class UserDBModifyData:
     tablename: str
     uuid: int
     action: UserDBModifyActionCase
-    column_data_map: dict[str, typing.Any] = {}
+    column_data_map: dict[str, typing.Any] = dataclasses.field(default_factory=lambda: {})
 
 
 @dataclasses.dataclass

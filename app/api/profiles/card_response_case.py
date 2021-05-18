@@ -1,12 +1,11 @@
 import dataclasses
 import datetime
 
-import app.common.utils as utils
 import app.api.helper_class as api_class
 
 
 @dataclasses.dataclass
-class CardResponseModel(utils.ResponseDataModel):
+class CardResponseModel(api_class.ResponseDataModel):
     uuid: int
     profile_name: str
     card_name: str

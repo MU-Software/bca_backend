@@ -18,7 +18,7 @@ delete_refresh_token: tuple[str, str] = ('Set-Cookie', refresh_token_remover_coo
 
 
 @dataclasses.dataclass
-class UserResponseModel(utils.ResponseDataModel):
+class UserResponseModel(api_class.ResponseDataModel):
     uuid: int
     id: str
     nickname: str

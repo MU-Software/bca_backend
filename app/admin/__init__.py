@@ -15,13 +15,15 @@ def init_app(app: flask.Flask, add_model_to_view: bool = True):
     if add_model_to_view:
         import app.database as db_module
         import app.database.user as user
-        import app.database.board as board
+        import app.database.jwt as jwt_module
+        import app.database.profile as profile
 
         admin.add_view(fadmin_sqla.ModelView(user.User, db_module.db.session))
         admin.add_view(fadmin_sqla.ModelView(user.EmailToken, db_module.db.session))
-        admin.add_view(fadmin_sqla.ModelView(board.Board, db_module.db.session))
-        admin.add_view(fadmin_sqla.ModelView(board.Post, db_module.db.session))
-        admin.add_view(fadmin_sqla.ModelView(board.Comment, db_module.db.session))
+        admin.add_view(fadmin_sqla.ModelView(jwt_module.RefreshToken, db_module.db.session))
+        admin.add_view(fadmin_sqla.ModelView(profile.Profile, db_module.db.session))
+        admin.add_view(fadmin_sqla.ModelView(profile.Card, db_module.db.session))
+        admin.add_view(fadmin_sqla.ModelView(profile.CardSubscribed, db_module.db.session))
 
     import app.admin.token_revoke as token_revoke
     admin.add_view(token_revoke.Admin_TokenRevoke_View(name='Token Revoke', endpoint='token-revoke'))

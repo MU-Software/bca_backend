@@ -6,7 +6,7 @@ import app.api.helper_class as api_class
 
 
 @dataclasses.dataclass
-class ProfileResponseModel(utils.ResponseDataModel):
+class ProfileResponseModel(api_class.ResponseDataModel):
     uuid: int
     name: str
     description: str

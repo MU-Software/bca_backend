@@ -162,6 +162,9 @@ def create_openapi_doc():
             spec.path(path=route_path, view=route_view_class)
 
     doc_file: pt.Path = pt.Path(f'docs/{restapi_version}.yaml')
+    if not doc_file.parent.exists():
+        doc_file.parent.mkdir()
+
     if doc_file.exists():
         doc_file.unlink()
 

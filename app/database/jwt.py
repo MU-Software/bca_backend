@@ -162,7 +162,7 @@ class AccessToken(TokenBase):
         # Access token's JTI must be same with Refresh token's.
         new_token.jti = refresh_token.jti
         new_token.role = refresh_token.role
-        new_token.profile_id = profile_module.Profile.uuid.query\
+        new_token.profile_id = db.session.query(profile_module.Profile.uuid)\
             .filter(profile_module.Profile.locked_at != None)\
             .filter(profile_module.Profile.deleted_at != None)\
             .filter(profile_module.Profile.user_id == refresh_token.user)\

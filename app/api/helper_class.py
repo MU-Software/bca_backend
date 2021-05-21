@@ -190,6 +190,8 @@ class ResponseDataModel:
                 result[name] = field.default_factory()
             elif field.type is datetime.datetime:
                 result[name] = datetime.datetime.now()
+            elif field.default not in (dataclasses.MISSING, dataclasses._MISSING_TYPE):
+                result[name] = field.default
             else:
                 result[name] = field.type()
 

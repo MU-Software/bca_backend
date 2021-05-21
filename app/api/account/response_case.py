@@ -19,18 +19,18 @@ delete_refresh_token: tuple[str, str] = ('Set-Cookie', refresh_token_remover_coo
 
 @dataclasses.dataclass
 class UserResponseModel(api_class.ResponseDataModel):
-    uuid: int
-    id: str
-    nickname: str
-    email: str
-    description: str
-    profile_image: str
+    uuid: int = 0
+    id: str = 'USER_ID'
+    nickname: str = ''
+    email: str = ''
+    description: str = ''
+    profile_image: str = ''
 
-    created_at: datetime.datetime
-    modified_at: datetime.datetime
+    created_at: datetime.datetime = datetime.datetime.now()
+    modified_at: datetime.datetime = datetime.datetime.now()
 
-    refresh_token: dict = dataclasses.field(default_factory=lambda: {'exp': str, })
-    access_token: dict = dataclasses.field(default_factory=lambda: {'exp': str, 'token': str, })
+    refresh_token: dict = dataclasses.field(default_factory=lambda: {'exp': 0, })
+    access_token: dict = dataclasses.field(default_factory=lambda: {'exp': 0, 'token': '', })
 
 
 class AccountResponseCase(api_class.ResponseCaseCollector):

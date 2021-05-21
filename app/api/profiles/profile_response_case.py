@@ -6,19 +6,19 @@ import app.api.helper_class as api_class
 
 @dataclasses.dataclass
 class ProfileResponseModel(api_class.ResponseDataModel):
-    uuid: int
-    name: str
-    description: str
-    phone: str
-    email: str
-    sns: str
-    data: dict[str, str]
+    uuid: int = 0
+    name: str = 'PROFILE_NAME'
+    description: str = 'SOME_DESCRIPTION'
+    phone: str = '010-0000-0000'
+    email: str = 'example@example.com'
+    sns: str = '{\"accounts\": [[\"twitter\", \"TWITTER_USER_ID\"]]}'
+    data: dict[str, str] = dataclasses.field(default_factory=lambda: {})
 
-    is_private: bool
+    is_private: bool = False
 
-    created_at: datetime.datetime
-    modified_at: datetime.datetime
-    modified: bool
+    created_at: datetime.datetime = datetime.datetime.now()
+    modified_at: datetime.datetime = datetime.datetime.now()
+    modified: bool = False
 
 
 class ProfileResponseCase(api_class.ResponseCaseCollector):

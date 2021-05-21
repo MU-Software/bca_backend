@@ -6,15 +6,15 @@ import app.api.helper_class as api_class
 
 @dataclasses.dataclass
 class CardResponseModel(api_class.ResponseDataModel):
-    uuid: int
-    profile_name: str
-    card_name: str
-    data: dict[str, str]
-    preview_url: str
+    uuid: int = 0
+    profile_name: str = 'PROFILE_NAME'
+    card_name: str = 'CARD_NAME'
+    data: dict[str, str] = dataclasses.field(default_factory=lambda: {})
+    preview_url: str = ''
 
-    created_at: datetime.datetime
-    modified_at: datetime.datetime
-    modified: bool
+    created_at: datetime.datetime = datetime.datetime.now()
+    modified_at: datetime.datetime = datetime.datetime.now()
+    modified: bool = False
 
 
 class CardResponseCase(api_class.ResponseCaseCollector):

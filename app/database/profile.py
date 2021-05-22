@@ -60,12 +60,12 @@ class Profile(db_module.DefaultModelMixin, db.Model):
     def to_dict(self):
         result = {
             'uuid': self.uuid,
-            'name': self.uuid,
-            'description': self.uuid,
-            'phone': self.uuid,
-            'email': self.uuid,
-            'sns': self.uuid,
-            'data': self.uuid,
+            'name': self.name,
+            'description': self.description,
+            'phone': self.phone,
+            'email': self.email,
+            'sns': self.sns,
+            'data': self.data,
 
             'is_private': self.private,
 

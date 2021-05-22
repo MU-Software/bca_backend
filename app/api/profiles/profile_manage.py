@@ -64,54 +64,87 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
-    # # Modify post
-    # def patch(self, post_id: int):
-    #     target_post: board_module.Post = None
-    #     try:
-    #         target_post = board_module.Post.query\
-    #             .filter(board_module.Post.locked == False)\
-    #             .filter(board_module.Post.deleted == False)\
-    #             .filter(board_module.Post.uuid == int(post_id)).first()
-    #     except Exception:
-    #         return CommonResponseCase.db_error.create_response()
-    #     if not target_post:
-    #         return PostResponseCase.post_not_found.create_response()
+    # # Modify profile
+    @api_class.RequestHeader(
+        required_fields={
+            'X-Csrf-Token': {'type': 'string', },
+            'If-Match': {'type': 'string', },
+        },
+        auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestBody(
+        required_fields={},
+        optional_fields={
+            'email': {'type': 'string', },
+            'phone': {'type': 'string', },
+            'sns': {'type': 'string', },
+            'description': {'type': 'string', },
+            'data': {'type': 'string', },
+            'private': {'type': 'boolean', }, })
+    def patch(self,
+              profile_id: int,
+              req_header: dict,
+              req_body: dict,
+              access_token: jwt_module.AccessToken):
+        '''
+        description: Modify user's {profile_id} profile
+        responses:
+            - profile_modified
+            - profile_not_found
+            - profile_forbidden
+            - profile_prediction_failed
+            - header_invalid
+            - header_required_omitted
+            - server_error
+        '''
+        try:
+            target_profile: profile_module.Profile = profile_module.Profile.query\
+                .filter(profile_module.Profile.locked_at == None)\
+                .filter(profile_module.Profile.deleted_at == None).first()  # noqa
+            if not target_profile:
+                return ProfileResponseCase.profile_not_found.create_response()
+            if target_profile.user_id != access_token.user:
+                # Check requested user is the owner of the profile
+                return ProfileResponseCase.profile_forbidden.create_response()
 
-    #     # Check requested user is author
-    #     access_token: jwt_module.AccessToken = jwt_module.get_account_data()
+            # Check Etag
+            if req_header['If-Match'] != target_profile.commit_id:
+                return ProfileResponseCase.profile_prediction_failed.create_response()
 
-    #     if not access_token:
-    #         if access_token is False:
-    #             return AccountResponseCase.access_token_expired.create_response()
-    #         return AccountResponseCase.access_token_invalid.create_response()
+            # Modify this profile
+            editable_columns = ('email', 'phone', 'sns', 'description', 'data', 'private')
+            if not [col for col in editable_columns if col in req_body]:
+                return CommonResponseCase.body_empty.create_response()
 
-    #     # Check Etag
-    #     if req_etag := flask.request.headers.get('If-Match', False):
-    #         if req_etag != target_post.commit_id:
-    #             return PostResponseCase.post_prediction_failed.create_response()
-    #     elif req_modified_at := flask.request.headers.get('If-Unmodified-Since', False):
-    #         try:
-    #             req_modified_at = datetime.datetime.strptime(req_modified_at, '%a, %d %b %Y %H:%M:%S GMT')
-    #             if target_post.modified_at > req_modified_at:
-    #                 return PostResponseCase.post_prediction_failed.create_response()
-    #         except Exception:
-    #             return CommonResponseCase.header_invalid.create_response()
-    #     else:
-    #         return CommonResponseCase.header_required_omitted.create_response(data={'lacks': ['ETag', ]})
+            for column in editable_columns:
+                if column in req_body:
+                    setattr(target_profile, column, req_body[column])
 
-    #     # Is req_user author? (author cannot modify post when post is not modifiable)
-    #     if (target_post.user_id != access_token.user) or (not target_post.modifiable):
-    #         return PostResponseCase.post_forbidden.create_response()
+            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
+            db_module.db.session.commit()
 
-    #     try:
-    #         # Modify post using request body
-    #         for req_key, req_value in post_req.items():
-    #             setattr(target_post, req_key, req_value)
-    #         db_module.db.session.commit()
+            # Now, find the users that needs to be applied changelog on user db
+            try:
+                # Need to find all users that follows this profile
+                profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
+                    .filter(profile_module.Card.profile_id == profile_id)\
+                    .filter(profile_module.Card.locked_at != None)  # noqa
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
+                    .filter(profile_module.CardSubscribed.card_id.in_(profile_cards_subquery))
+                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
+                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
+                    .filter(profile_module.Profile.locked_at != None)\
+                    .distinct(profile_module.Profile.user_id).all()  # noqa
 
-    #         return PostResponseCase.post_modified.create_response()
-    #     except Exception:
-    #         return CommonResponseCase.db_error.create_response()
+                for user_id in users_id_of_profiles:
+                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
+
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
+
+            return ProfileResponseCase.profile_deleted.create_response()
+        except Exception:
+            # TODO: Check DB error
+            return CommonResponseCase.server_error.create_response()
 
     @api_class.RequestHeader(
         required_fields={
@@ -140,8 +173,8 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(profile_module.Profile.deleted_at == None).first()  # noqa
             if not target_profile:
                 return ProfileResponseCase.profile_not_found.create_response()
-            if target_profile.user_id != access_token.user:
-                # Check requested user is the owner of the profile
+            if target_profile.user_id != access_token.user and access_token.role not in ('admin', ):
+                # Check requested user is admin or the owner of the profile
                 return ProfileResponseCase.profile_forbidden.create_response()
 
             # Check Etag
@@ -153,8 +186,27 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_profile.deleted_by_id = access_token.user
             target_profile.why_deleted = 'SELF_DELETED'
 
-            sqs_action.create_changelog_from_session(db_module.db)
+            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
+
+            # Find the users that needs to be applied changelog on user db
+            try:
+                # Need to find all users that follows this profile
+                profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
+                    .filter(profile_module.Card.profile_id == profile_id)\
+                    .filter(profile_module.Card.locked_at != None)  # noqa
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
+                    .filter(profile_module.CardSubscribed.card_id.in_(profile_cards_subquery))
+                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
+                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
+                    .filter(profile_module.Profile.locked_at != None)\
+                    .distinct(profile_module.Profile.user_id).all()  # noqa
+
+                for user_id in users_id_of_profiles:
+                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
+
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
 
             return ProfileResponseCase.profile_deleted.create_response()
         except Exception:

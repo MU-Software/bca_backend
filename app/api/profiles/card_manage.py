@@ -62,17 +62,78 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # TODO: Check DB error
             return CommonResponseCase.server_error.create_response()
 
-    # @api_class.RequestHeader(
-    #     required_fields={
-    #         'X-Csrf-Token': {'type': 'string', },
-    #         'If-Match': {'type': 'string', }
-    #     },
-    #     auth={api_class.AuthType.Bearer: True, })
-    # def patch(self,
-    #         card_id: int,
-    #         req_header: dict,
-    #         access_token: jwt_module.AccessToken):
-    #     pass
+    @api_class.RequestHeader(
+        required_fields={
+            'X-Csrf-Token': {'type': 'string', },
+            'If-Match': {'type': 'string', }, },
+        auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestBody(
+        required_fields={},
+        optional_fields={
+            'data': {'type': 'string', },
+            'private': {'type': 'boolean', }, })
+    def patch(self,
+              profile_id: int,
+              card_id: int,
+              req_header: dict,
+              req_body: dict,
+              access_token: jwt_module.AccessToken):
+        '''
+        description: Modify user's card_id card. Only card creator can do card modification.
+        responses:
+            - card_modified
+            - card_not_found
+            - card_forbidden
+            - db_error
+            - server_error
+        '''
+        try:
+            target_card: profile_module.Card = profile_module.Card.query\
+                .filter(profile_module.Card.profile_id == profile_id)\
+                .filter(profile_module.Card.locked_at != None)\
+                .filter(profile_module.Card.deleted_at != None)\
+                .filter(profile_module.Card.uuid == card_id).first()  # noqa
+            if not target_card:
+                return CardResponseCase.card_not_found.create_response()
+
+            # Card can be deleted only by created user or admin
+            if target_card.profile_id not in access_token.profile_id:
+                return CardResponseCase.card_forbidden.create_response()
+
+            # E-tag of request must be matched
+            if target_card.commit_id != req_header.get('If-Match', None):
+                return CardResponseCase.card_prediction_failed.create_response()
+
+            # Modify card data
+            editable_columns = ('data', 'private')
+            if not [col for col in editable_columns if col in req_body]:
+                return CommonResponseCase.body_empty.create_response()
+
+            for column in editable_columns:
+                if column in req_body:
+                    setattr(target_card, column, req_body[column])
+
+            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
+            db_module.db.session.commit()
+
+            # Now, find the users that needs to be applied changelog on user db
+            try:
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
+                    .filter(profile_module.CardSubscribed.card_id == card_id)
+                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
+                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
+                    .filter(profile_module.Profile.locked_at != None)\
+                    .distinct(profile_module.Profile.user_id).all()  # noqa
+
+                for user_id in users_id_of_profiles:
+                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
+
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
+
+            return CardResponseCase.card_modified.create_response()
+        except Exception:
+            return CommonResponseCase.server_error.create_response()
 
     @api_class.RequestHeader(
         required_fields={
@@ -114,8 +175,23 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.deleted_by_id = access_token.user
             target_card.why_deleted = 'SELF_DELETED'
 
-            sqs_action.create_changelog_from_session(db_module.db)
+            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
+
+            # Now, find the users that needs to be applied changelog on user db
+            try:
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
+                    .filter(profile_module.CardSubscribed.card_id == card_id)
+                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
+                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
+                    .filter(profile_module.Profile.locked_at != None)\
+                    .distinct(profile_module.Profile.user_id).all()  # noqa
+
+                for user_id in users_id_of_profiles:
+                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
+
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
 
             return CardResponseCase.card_deleted.create_response()
         except Exception:

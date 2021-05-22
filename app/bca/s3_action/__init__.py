@@ -85,12 +85,13 @@ def create_user_db(user_id: int,
                 .filter(profile_module.Profile.locked_at != None)  # noqa
 
             user_card_relations: list[profile_module.CardSubscribed] = user_card_relations_query.all()
-            user_subscripting_cards: list[profile_module.CardSubscribed] = user_subscripting_cards_query.distinct()
-            user_following_profiles: list[profile_module.CardSubscribed] = user_following_profiles_query.distinct()
+            user_subscripting_cards: list[profile_module.Card] = user_subscripting_cards_query\
+                .distinct(profile_module.Card.uuid).all()
+            user_following_profiles: list[profile_module.Profile] = user_following_profiles_query\
+                .distinct(profile_module.Profile.uuid).all()
 
             for profile in user_following_profiles:
                 new_profile = ProfileTable()
-                queried_profile = profile.profile
 
                 target_columns = (
                     'uuid', 'description', 'data',
@@ -100,13 +101,12 @@ def create_user_db(user_id: int,
                     'guestbook', 'announcement', 'private')
 
                 for column in target_columns:
-                    setattr(new_profile, column, getattr(queried_profile, column))
+                    setattr(new_profile, column, getattr(profile, column))
 
                 temp_user_db_session.add(new_profile)
 
             for card in user_subscripting_cards:
                 new_card = CardTable()
-                queried_card = card.card
 
                 target_columns = (
                     'uuid', 'profile_id',
@@ -115,7 +115,7 @@ def create_user_db(user_id: int,
                     'deleted_at', 'why_deleted')
 
                 for column in target_columns:
-                    setattr(new_card, column, getattr(queried_card, column))
+                    setattr(new_card, column, getattr(card, column))
 
                 temp_user_db_session.add(new_card)
 

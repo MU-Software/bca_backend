@@ -145,10 +145,11 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         if user_db_file:
             user_db_file.seek(0)
-            response_body['db'] = base64.b64encode(user_db_file.read())
+            response_body['db'] = base64.b64encode(user_db_file.read()).decode()
             response_header = list(jwt_data_header)
             response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
             response_header = tuple(response_header)
+            user_db_file.close()
 
         response_type: api_class.Response = AccountResponseCase.user_signed_up
         if not mail_sent:

@@ -45,16 +45,19 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
             client_md5 = req_header.get('If-Match', md5_placeholder)
             if s3_action.check_user_db_md5(access_token.user, client_md5):
                 return SyncResponseCase.sync_latest.create_response(
-                    header=(('ETag', utils.fileobj_md5(client_md5)), ),
+                    header=(('ETag', client_md5), ),
                 )
 
             user_db_file_obj = s3_action.get_user_db(access_token.user)
             user_db_file_obj.seek(0)
 
+            file_md5 = utils.fileobj_md5(user_db_file_obj)
+            file_b64 = base64.b64encode(user_db_file_obj.read()).decode()
+            user_db_file_obj.close()
+
             return SyncResponseCase.sync_ok.create_response(
-                header=(('ETag', utils.fileobj_md5(user_db_file_obj)), ),
-                data={'db': base64.b64decode(user_db_file_obj.read())}
-            )
+                header=(('ETag', file_md5), ),
+                data={'db': file_b64})
 
         except Exception:
             return CommonResponseCase.server_error.create_response()
@@ -76,10 +79,13 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 raise Exception
             user_db_file_obj.seek(0)
 
+            file_md5 = utils.fileobj_md5(user_db_file_obj)
+            file_b64 = base64.b64encode(user_db_file_obj.read()).decode()
+            user_db_file_obj.close()
+
             return SyncResponseCase.sync_ok.create_response(
-                header=(('ETag', utils.fileobj_md5(user_db_file_obj)), ),
-                data={'db': base64.b64decode(user_db_file_obj.read())}
-            )
+                header=(('ETag', file_md5), ),
+                data={'db': file_b64})
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

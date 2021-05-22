@@ -75,10 +75,11 @@ class SignInRoute(flask.views.MethodView, api_class.MethodViewMixin):
         user_db_file = s3_action.get_user_db(account_result.uuid)
         if user_db_file:
             user_db_file.seek(0)
-            response_body['db'] = base64.b64encode(user_db_file.read())
+            response_body['db'] = base64.b64encode(user_db_file.read()).decode()
             response_header = list(jwt_data_header)
             response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
             response_header = tuple(response_header)
+            user_db_file.close()
 
         return AccountResponseCase.user_signed_in.create_response(
                     header=jwt_data_header, data=response_body)

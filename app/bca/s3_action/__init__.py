@@ -2,13 +2,16 @@ import boto3
 import botocore.client
 import flask
 import io
+import pathlib as pt
 import sqlalchemy as sql
 import sqlalchemy.ext.declarative as sqldec
 import sqlalchemy.orm as sqlorm
+import sqlite3
 import tempfile
 import typing
 
 import app.common.utils as utils
+import app.database as db_module
 import app.database.profile as profile_module
 import app.bca.database.user_db_table as bca_user_db_table
 
@@ -23,8 +26,8 @@ def create_user_db(user_id: int,
 
         # Create temporary file and connection
         temp_user_db_file = tempfile.NamedTemporaryFile('w+b', delete=True)
-
-        temp_user_db_engine = sql.create_engine(f'sqlite://{temp_user_db_file.name}')
+        temp_user_db_sqlite_conn = sqlite3.connect(temp_user_db_file.name)
+        temp_user_db_engine = sql.create_engine('sqlite://', creator=lambda: temp_user_db_sqlite_conn)
         temp_user_db_session = sqlorm.scoped_session(
                                     sqlorm.sessionmaker(
                                         autocommit=False,
@@ -53,30 +56,37 @@ def create_user_db(user_id: int,
         if insert_all_data_from_global_db:
             # Insert data to user db from global db
             # Find user's profiles, and find all card subscriptions using user's profiles.
-            user_profiles_query = profile_module.Profile.query\
+
+            # List of profile's ID that owned by user
+            user_profiles_query = db_module.db.session.query(profile_module.Profile.uuid)\
                 .filter(profile_module.Profile.locked_at != None)\
                 .filter(profile_module.Profile.deleted_at != None)\
                 .filter(profile_module.Profile.user_id == user_id)\
                 .subquery()  # noqa
 
+            # All relations between profiles (owned by user) and cards
             user_card_relations_query = profile_module.CardSubscribed.query\
                 .filter(profile_module.CardSubscribed.profile_id.in_(user_profiles_query))
 
-            user_subscripting_cards_query = user_card_relations_query\
-                .group_by(profile_module.CardSubscribed.card_id)\
-                .join(profile_module.CardSubscribed.card)\
-                .options(sqlorm.contains_eager(profile_module.CardSubscribed.card))\
+            # All card id that needs to be added to user DB
+            card_ids_that_needs_to_be_added_query = user_card_relations_query\
+                .with_entities(profile_module.CardSubscribed.card_id)
+
+            user_subscripting_cards_query = profile_module.Card.query\
+                .filter(profile_module.Card.uuid.in_(card_ids_that_needs_to_be_added_query))\
                 .filter(profile_module.Card.locked_at != None)  # noqa
 
-            user_following_profiles_query = user_card_relations_query\
-                .group_by(profile_module.CardSubscribed.profile_id)\
-                .join(profile_module.CardSubscribed.profile_id)\
-                .options(sqlorm.contains_eager(profile_module.CardSubscribed.profile))\
+            # All profile id that needs to be added to user DB
+            profile_ids_that_needs_to_be_added_query = user_card_relations_query\
+                .with_entities(profile_module.CardSubscribed.profile_id)
+
+            user_following_profiles_query = profile_module.Profile.query\
+                .filter(profile_module.Profile.uuid.in_(profile_ids_that_needs_to_be_added_query))\
                 .filter(profile_module.Profile.locked_at != None)  # noqa
 
             user_card_relations: list[profile_module.CardSubscribed] = user_card_relations_query.all()
-            user_subscripting_cards: list[profile_module.CardSubscribed] = user_subscripting_cards_query.all()
-            user_following_profiles: list[profile_module.CardSubscribed] = user_following_profiles_query.all()
+            user_subscripting_cards: list[profile_module.CardSubscribed] = user_subscripting_cards_query.distinct()
+            user_following_profiles: list[profile_module.CardSubscribed] = user_following_profiles_query.distinct()
 
             for profile in user_following_profiles:
                 new_profile = ProfileTable()
@@ -123,14 +133,17 @@ def create_user_db(user_id: int,
 
         temp_user_db_session.commit()
         temp_user_db_engine.dispose()  # Disconnect all connections (for safety)
-        temp_user_db_file.seek(0)
 
-        s3_client = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
-        s3_client.upload_fileobj(temp_user_db_file,
-                                 flask.current_app.config.get('AWS_S3_BUCKET_NAME'),
-                                 f'/user_db/{user_id}/sync_db.sqlite')
+        temp_user_db_file_pt = pt.Path(temp_user_db_file.name)
+
+        with temp_user_db_file_pt.open('rb') as fp:
+            s3_client = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
+            s3_client.upload_fileobj(fp,
+                                     flask.current_app.config.get('AWS_S3_BUCKET_NAME'),
+                                     f'/user_db/{user_id}/sync_db.sqlite')
         return temp_user_db_file
-    except Exception:
+    except Exception as err:
+        print(utils.get_traceback_msg(err))
         # TODO: Do something proper while creating and uploading user db file
         print('Exception raised while creating user sqlite file')
         return None
@@ -164,7 +177,9 @@ def get_user_db_md5(user_id: int) -> str:
         if utils.safe_int(err.response['Error']['Code']) == 404:
             new_db_file = create_user_db(user_id)
             if new_db_file:
-                return utils.fileobj_md5(new_db_file)
+                file_md5 = utils.fileobj_md5(new_db_file)
+                new_db_file.close()
+                return file_md5
         return ''
     except Exception:
         return ''

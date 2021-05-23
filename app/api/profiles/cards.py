@@ -57,7 +57,7 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 response_cards.append(card.to_dict())
 
             return CardResponseCase.multiple_cards_found.create_response(
-                data={'cards': [card.to_dict() for card in response_cards], })
+                data={'cards': response_cards, })
 
         except Exception:
             # TODO: Check DB error

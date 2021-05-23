@@ -78,6 +78,8 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             sqs_action.UserDBModifyTaskMessage(target_profile.user_id, user_db_changelog).add_to_queue()
 
+            return CardResponseCase.card_subscribed.create_response()
+
         except Exception:
             # TODO: Check DB error
             return CommonResponseCase.server_error.create_response()

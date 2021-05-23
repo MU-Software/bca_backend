@@ -26,8 +26,8 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             target_profiles: list[profile_module.Profile] = profile_module.Profile.query\
                 .filter(profile_module.Profile.user_id == access_token.user)\
-                .filter(profile_module.Profile.locked_at != None)\
-                .filter(profile_module.Profile.deleted_at != None)\
+                .filter(profile_module.Profile.locked_at == None)\
+                .filter(profile_module.Profile.deleted_at == None)\
                 .all()  # noqa
             if not target_profiles:
                 return ProfileResponseCase.profile_not_found.create_response(
@@ -67,9 +67,9 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Get user data from table using access token
             target_user: user_module.User = user_module.User.query\
                 .filter(user_module.User.uuid == access_token.user)\
-                .filter(user_module.User.deactivated_at is not None)\
-                .filter(user_module.User.locked_at is not None)\
-                .first()
+                .filter(user_module.User.deactivated_at == None)\
+                .filter(user_module.User.locked_at == None)\
+                .first()  # noqa
             if not target_user:
                 return AccountResponseCase.user_not_found.create_response()
 

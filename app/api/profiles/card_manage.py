@@ -35,7 +35,7 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             target_card: profile_module.Card = profile_module.Card.query\
                 .filter(profile_module.Card.profile_id == profile_id)\
-                .filter(profile_module.Card.locked_at != None)\
+                .filter(profile_module.Card.locked_at == None)\
                 .filter(profile_module.Card.uuid == card_id).first()  # noqa
             if not target_card:
                 return CardResponseCase.card_not_found.create_response()
@@ -90,8 +90,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             target_card: profile_module.Card = profile_module.Card.query\
                 .filter(profile_module.Card.profile_id == profile_id)\
-                .filter(profile_module.Card.locked_at != None)\
-                .filter(profile_module.Card.deleted_at != None)\
+                .filter(profile_module.Card.locked_at == None)\
+                .filter(profile_module.Card.deleted_at == None)\
                 .filter(profile_module.Card.uuid == card_id).first()  # noqa
             if not target_card:
                 return CardResponseCase.card_not_found.create_response()
@@ -122,7 +122,7 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     .filter(profile_module.CardSubscribed.card_id == card_id)
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at != None)\
+                    .filter(profile_module.Profile.locked_at == None)\
                     .distinct(profile_module.Profile.user_id).all()  # noqa
 
                 for user_id in users_id_of_profiles:
@@ -157,8 +157,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             target_card: profile_module.Card = profile_module.Card.query\
                 .filter(profile_module.Card.profile_id == profile_id)\
-                .filter(profile_module.Card.locked_at != None)\
-                .filter(profile_module.Card.deleted_at != None)\
+                .filter(profile_module.Card.locked_at == None)\
+                .filter(profile_module.Card.deleted_at == None)\
                 .filter(profile_module.Card.uuid == card_id).first()  # noqa
             if not target_card:
                 return CardResponseCase.card_not_found.create_response()
@@ -184,7 +184,7 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     .filter(profile_module.CardSubscribed.card_id == card_id)
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at != None)\
+                    .filter(profile_module.Profile.locked_at == None)\
                     .distinct(profile_module.Profile.user_id).all()  # noqa
 
                 for user_id in users_id_of_profiles:

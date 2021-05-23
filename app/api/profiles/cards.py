@@ -32,8 +32,8 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
         '''
         try:
             target_cards: list[profile_module.Card] = profile_module.Card.query\
-                .filter(profile_module.Card.locked_at != None)\
-                .filter(profile_module.Card.deleted_at != None)\
+                .filter(profile_module.Card.locked_at == None)\
+                .filter(profile_module.Card.deleted_at == None)\
                 .filter(profile_module.Card.profile_id == profile_id)\
                 .all()  # noqa
             if not target_cards:
@@ -89,8 +89,8 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return CardResponseCase.card_forbidden.create_response()
 
             target_profile: profile_module.Profile = profile_module.Profile.query\
-                .filter(profile_module.Profile.locked_at != None)\
-                .filter(profile_module.Profile.deleted_at != None)\
+                .filter(profile_module.Profile.locked_at == None)\
+                .filter(profile_module.Profile.deleted_at == None)\
                 .filter(profile_module.Profile.user_id == access_token.user)\
                 .filter(profile_module.Profile.uuid == profile_id)\
                 .first()  # noqa

@@ -48,8 +48,8 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             target_profile: profile_module.Profile = profile_module.Profile.query\
                 .filter(profile_module.Profile.uuid == profile_id)\
-                .filter(profile_module.Profile.locked_at != None)\
-                .filter(profile_module.Profile.deleted_at != None)\
+                .filter(profile_module.Profile.locked_at == None)\
+                .filter(profile_module.Profile.deleted_at == None)\
                 .first()  # noqa
             if not target_profile:
                 return ProfileResponseCase.profile_not_found.create_response()
@@ -105,8 +105,8 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             target_profile: profile_module.Profile = profile_module.Profile.query\
                 .filter(profile_module.Profile.uuid == profile_id)\
-                .filter(profile_module.Profile.locked_at != None)\
-                .filter(profile_module.Profile.deleted_at != None)\
+                .filter(profile_module.Profile.locked_at == None)\
+                .filter(profile_module.Profile.deleted_at == None)\
                 .first()  # noqa
             if not target_profile:
                 return ProfileResponseCase.profile_not_found.create_response()

@@ -33,7 +33,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
         '''
         try:
             target_profile: profile_module.Profile = profile_module.Profile.query\
-                .filter(profile_module.Profile.locked_at != None)\
+                .filter(profile_module.Profile.locked_at == None)\
                 .filter(profile_module.Profile.uuid == int(profile_id))\
                 .first()  # noqa
             if not target_profile:
@@ -49,7 +49,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     # Find all target profile's card, and find any relations of requested user and those cards
                     target_profile_cards_subquery = profile_module.Card.query\
                         .filter(profile_module.Card.profile_id == target_profile.uuid)\
-                        .filter(profile_module.Card.locked_at != None)\
+                        .filter(profile_module.Card.locked_at == None)\
                         .subquery()  # noqa
                     profile_subscription = profile_module.CardSubscribed.query\
                         .filter(profile_module.CardSubscribed.card_id.in_(target_profile_cards_subquery))\
@@ -127,12 +127,12 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 # Need to find all users that follows this profile
                 profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
                     .filter(profile_module.Card.profile_id == profile_id)\
-                    .filter(profile_module.Card.locked_at != None)  # noqa
+                    .filter(profile_module.Card.locked_at == None)  # noqa
                 profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
                     .filter(profile_module.CardSubscribed.card_id.in_(profile_cards_subquery))
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at != None)\
+                    .filter(profile_module.Profile.locked_at == None)\
                     .distinct(profile_module.Profile.user_id).all()  # noqa
 
                 for user_id in users_id_of_profiles:
@@ -194,12 +194,12 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 # Need to find all users that follows this profile
                 profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
                     .filter(profile_module.Card.profile_id == profile_id)\
-                    .filter(profile_module.Card.locked_at != None)  # noqa
+                    .filter(profile_module.Card.locked_at == None)  # noqa
                 profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
                     .filter(profile_module.CardSubscribed.card_id.in_(profile_cards_subquery))
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at != None)\
+                    .filter(profile_module.Profile.locked_at == None)\
                     .distinct(profile_module.Profile.user_id).all()  # noqa
 
                 for user_id in users_id_of_profiles:

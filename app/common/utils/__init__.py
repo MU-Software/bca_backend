@@ -290,6 +290,12 @@ def ignore_exception(IgnoreException=Exception, DefaultVal=None):
 safe_int = ignore_exception(Exception, 0)(int)
 
 
+def json_default(value):
+    if isinstance(value, datetime.date):
+        return value.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    raise TypeError('not JSON serializable')
+
+
 # ---------- ETC ----------
 pmmod_desc = lambda a: ''.join(y for x,y in zip([4&a,2&a,1&a], list('RWX')) if x)  # noqa
 

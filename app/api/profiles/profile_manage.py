@@ -134,6 +134,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
                     .filter(profile_module.Profile.locked_at == None)\
                     .distinct(profile_module.Profile.user_id).all()  # noqa
+                users_id_of_profiles = [user_id[0] for user_id in users_id_of_profiles]
 
                 for user_id in users_id_of_profiles:
                     sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
@@ -201,6 +202,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
                     .filter(profile_module.Profile.locked_at == None)\
                     .distinct(profile_module.Profile.user_id).all()  # noqa
+                users_id_of_profiles = [user_id[0] for user_id in users_id_of_profiles]
 
                 for user_id in users_id_of_profiles:
                     sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()

@@ -71,6 +71,7 @@ class TokenBase:
             if attr_name in allowed_claim_in_jwt:
                 result_payload[attr_name] = attr_value
 
+        print(result_payload)
         return jwt.encode(payload=result_payload, key=key, algorithm=algorithm)
 
     @classmethod
@@ -167,6 +168,7 @@ class AccessToken(TokenBase):
             .filter(profile_module.Profile.deleted_at == None)\
             .filter(profile_module.Profile.user_id == refresh_token.user)\
             .all()  # noqa
+        new_token.profile_id = [profile_id[0] for profile_id in new_token.profile_id]
 
         return new_token
 

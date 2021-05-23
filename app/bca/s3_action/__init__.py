@@ -140,7 +140,7 @@ def create_user_db(user_id: int,
             s3_client = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
             s3_client.upload_fileobj(fp,
                                      flask.current_app.config.get('AWS_S3_BUCKET_NAME'),
-                                     f'/user_db/{user_id}/sync_db.sqlite')
+                                     f'user_db/{user_id}/sync_db.sqlite')
         return temp_user_db_file
     except Exception as err:
         print(utils.get_traceback_msg(err))
@@ -154,7 +154,7 @@ def get_user_db(user_id: int) -> typing.Union[typing.IO[bytes], io.BytesIO]:
     s3 = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
     temp_db_file: io.BytesIO = io.BytesIO()
     try:
-        s3.download_fileobj(bucket_name, f'/user_db/{user_id}/sync_db.sqlite', temp_db_file)
+        s3.download_fileobj(bucket_name, f'user_db/{user_id}/sync_db.sqlite', temp_db_file)
         temp_db_file.seek(0)
         return temp_db_file
     except botocore.client.ClientError as err:
@@ -171,7 +171,7 @@ def get_user_db_md5(user_id: int) -> str:
         s3 = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
         return s3.head_object(
             Bucket=bucket_name,
-            Key=f'/user_db/{user_id}/sync_db.sqlite'
+            Key=f'user_db/{user_id}/sync_db.sqlite'
         )['ETag'][1:-1]
     except botocore.client.ClientError as err:
         if utils.safe_int(err.response['Error']['Code']) == 404:
@@ -202,7 +202,7 @@ def delete_user_db(user_id: int) -> None:
         s3 = boto3.client('s3', region_name=flask.current_app.config.get('AWS_REGION'))
         s3.delete_object(
             Bucket=bucket_name,
-            Key=f'/user_db/{user_id}/sync_db.sqlite')
+            Key=f'user_db/{user_id}/sync_db.sqlite')
     except botocore.client.ClientError as err:
         if utils.safe_int(err.response['Error']['Code']) == 404:
             return

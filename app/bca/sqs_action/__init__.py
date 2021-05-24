@@ -87,7 +87,7 @@ def create_changelog_from_session(db: fsql.SQLAlchemy) -> list[UserDBModifyData]
             row_created: profile_module.CardSubscribed = row_created
             # TODO: Add Card and Profile data too
             target_profile: profile_module.Profile = profile_module.Profile.query\
-                .filter(profile_module.Profile.uuid == row_created.profile_id)\
+                .filter(profile_module.Profile.uuid == row_created.card.profile_id)\
                 .first()
             target_card: profile_module.Card = profile_module.Card.query\
                 .filter(profile_module.Card.uuid == row_created.card_id)\

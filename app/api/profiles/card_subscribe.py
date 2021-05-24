@@ -46,19 +46,11 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if target_profile_id not in access_token.profile_id:
                 return CardResponseCase.card_forbidden.create_response()
 
-            target_profile: profile_module.Profile = profile_module.Profile.query\
-                .filter(profile_module.Profile.uuid == profile_id)\
-                .filter(profile_module.Profile.locked_at == None)\
-                .filter(profile_module.Profile.deleted_at == None)\
-                .first()  # noqa
-            if not target_profile:
-                return ProfileResponseCase.profile_not_found.create_response()
-
             # Check if profile already subscribed the card
             target_card_subscription: profile_module.CardSubscribed = profile_module.CardSubscribed.query\
-                .filter(profile_module.CardSubscribed.profile_id == target_profile.uuid)\
+                .filter(profile_module.CardSubscribed.profile_id == target_profile_id)\
                 .filter(profile_module.CardSubscribed.card_id == card_id)\
-                .scalar()
+                .first()
             if target_card_subscription:
                 # Card is already subscribed!
                 return CardResponseCase.card_already_subscribed.create_response()
@@ -77,6 +69,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db_module.db.session.commit()
 
             sqs_action.UserDBModifyTaskMessage(target_profile.user_id, user_db_changelog).add_to_queue()
+            sqs_action.UserDBModifyTaskMessage(target_profile_id, user_db_changelog).add_to_queue()
 
             return CardResponseCase.card_subscribed.create_response()
 

@@ -359,7 +359,7 @@ class RequestHeader:
                         except jwt.exceptions.ExpiredSignatureError:
                             # AccessToken Expired error must be raised when bearer auth is softly required,
                             # so that client can re-request after refreshing AccessToken
-                            return account_resp_case.AccountResponseCase.access_token_expired()
+                            return account_resp_case.AccountResponseCase.access_token_expired.create_response()
                         except Exception as err:
                             if required:
                                 print(err)

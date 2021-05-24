@@ -5,6 +5,8 @@ import flask
 import flask_sqlalchemy as fsql
 import json
 import sqlalchemy as sql
+import sqlalchemy.ext.declarative as sqldec
+import sqlalchemy.util as sqlutil
 import typing
 
 import app.common.utils as utils
@@ -78,10 +80,21 @@ def create_changelog_from_session(db: fsql.SQLAlchemy) -> list[UserDBModifyData]
 
         user_profile_columns = [col_name for col_name, col in user_db_table.Profile.__dict__.items()
                                 if isinstance(col, sql.Column)]
+        # Need to add declared_attr columns
+        user_profile_columns += [col_name for col_name, col in user_db_table.Profile.__dict__.items()
+                                 if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
+
         user_card_columns = [col_name for col_name, col in user_db_table.Card.__dict__.items()
                              if isinstance(col, sql.Column)]
+        # Need to add declared_attr columns
+        user_card_columns += [col_name for col_name, col in user_db_table.Card.__dict__.items()
+                              if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
+
         user_cardsubsribe_columns = [col_name for col_name, col in user_db_table.CardSubscription.__dict__.items()
                                      if isinstance(col, sql.Column)]
+        # Need to add declared_attr columns
+        user_cardsubsribe_columns += [col_name for col_name, col in user_db_table.CardSubscription.__dict__.items()
+                                      if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
 
         if type(row_created).__tablename__ == 'TB_CARD_SUBSCRIBED':
             row_created: profile_module.CardSubscribed = row_created

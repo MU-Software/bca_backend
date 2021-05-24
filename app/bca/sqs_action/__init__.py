@@ -86,11 +86,11 @@ def create_changelog_from_session(db: fsql.SQLAlchemy) -> list[UserDBModifyData]
         if type(row_created).__tablename__ == 'TB_CARD_SUBSCRIBED':
             row_created: profile_module.CardSubscribed = row_created
             # TODO: Add Card and Profile data too
-            target_profile: profile_module.Profile = profile_module.Profile.query\
-                .filter(profile_module.Profile.uuid == row_created.card.profile_id)\
-                .first()
             target_card: profile_module.Card = profile_module.Card.query\
                 .filter(profile_module.Card.uuid == row_created.card_id)\
+                .first()
+            target_profile: profile_module.Profile = profile_module.Profile.query\
+                .filter(profile_module.Profile.uuid == target_card.profile_id)\
                 .first()
             target_profile_data = {name: getattr(target_profile, name) for name in user_profile_columns}
             target_card_data = {name: getattr(target_card, name) for name in user_card_columns}

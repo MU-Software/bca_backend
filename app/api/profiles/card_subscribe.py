@@ -68,7 +68,9 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
-            sqs_action.UserDBModifyTaskMessage(target_profile.user_id, user_db_changelog).add_to_queue()
+            tgt_lg = [changelog for changelog in user_db_changelog if changelog.tablename == 'TB_CARD_SUBSCRIPTION'][0]
+            tgt_lg.uuid = new_subscription.uuid
+
             sqs_action.UserDBModifyTaskMessage(target_profile_id, user_db_changelog).add_to_queue()
 
             return CardResponseCase.card_subscribed.create_response()

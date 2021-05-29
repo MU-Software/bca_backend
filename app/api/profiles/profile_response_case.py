@@ -39,7 +39,7 @@ class ProfileResponseCase(api_class.ResponseCaseCollector):
 
     profile_forbidden = api_class.Response(
         description='You don\'t have permissions to do such thing on this profile.',
-        code=401, success=False,
+        code=403, success=False,
         public_sub_code='profile.forbidden')
     profile_prediction_failed = api_class.Response(
         description='Profile has been modified on another device, '

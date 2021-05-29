@@ -35,7 +35,7 @@ class CardResponseCase(api_class.ResponseCaseCollector):
 
     card_forbidden = api_class.Response(
         description='You don\'t have permissions to do such thing on this card.',
-        code=401, success=False,
+        code=403, success=False,
         public_sub_code='card.forbidden')
     card_prediction_failed = api_class.Response(
         description='Card has been modified on another device, and you tried to modify this card with old version.',

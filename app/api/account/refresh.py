@@ -54,7 +54,7 @@ class AccessTokenIssueRoute(flask.views.MethodView, api_class.MethodViewMixin):
             response_body = {'user': jwt_data_body}
             response_body['user'].update(target_user.to_dict())
             return AccountResponseCase.access_token_refreshed.create_response(
-                        header=jwt_data_header, data=jwt_data_body)
+                        header=jwt_data_header, data=response_body)
         except jwt.exceptions.ExpiredSignatureError:
             return AccountResponseCase.refresh_token_expired.create_response()
         except Exception:

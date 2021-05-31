@@ -80,6 +80,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_profile.phone = req_body.get('phone', None)
             new_profile.sns = req_body.get('sns', None)
             new_profile.description = req_body.get('description', None)
+            new_profile.data = req_body.get('data', None)
             new_profile.private = bool(req_body.get('private', False))
 
             db_module.db.session.add(new_profile)

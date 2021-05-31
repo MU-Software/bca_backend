@@ -26,7 +26,7 @@ class ProfileResponseCase(api_class.ResponseCaseCollector):
         description='Profile you requested found.',
         code=200, success=True,
         public_sub_code='profile.result',
-        data=ProfileResponseModel.get_model_openapi_description())
+        data={"profile": ProfileResponseModel.get_model_openapi_description()})
     multiple_profiles_found = api_class.Response(
         description='Multiple profiles you requested found',
         code=200, success=True,
@@ -51,12 +51,12 @@ class ProfileResponseCase(api_class.ResponseCaseCollector):
         description='We successfully created a profile.',
         code=201, success=True,
         public_sub_code='profile.created',
-        data=ProfileResponseModel.get_model_openapi_description())
+        data={"profile": ProfileResponseModel.get_model_openapi_description()})
     profile_modified = api_class.Response(
         description='We successfully modified a profile.',
         code=201, success=True,
         public_sub_code='profile.modified',
-        data=ProfileResponseModel.get_model_openapi_description())
+        data={"profile": ProfileResponseModel.get_model_openapi_description()})
     profile_deleted = api_class.Response(
         description='We successfully deleted a profile.',
         code=204, success=True,

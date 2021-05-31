@@ -74,7 +74,7 @@ class Profile(db_module.DefaultModelMixin, db.Model):
             'modified_at': self.modified_at,
         }
 
-        return {'profile': result, }
+        return result
 
 
 class Card(db_module.DefaultModelMixin, db.Model):

@@ -21,7 +21,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             'X-Profile-Id': {'type': 'integer', }, },
         auth={api_class.AuthType.Bearer: True, })
     def put(self, profile_id: int, card_id: int, req_header: dict,
-            access_token: typing.Optional[jwt_module.AccessToken]):
+            access_token: jwt_module.AccessToken):
         '''
         description: Subscribe this card
         responses:

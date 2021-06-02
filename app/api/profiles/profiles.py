@@ -1,3 +1,4 @@
+import datetime
 import flask
 
 import app.api.helper_class as api_class
@@ -9,6 +10,8 @@ import app.database.profile as profile_module
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
 from app.api.profiles.profile_response_case import ProfileResponseCase
+
+redis_db = db_module.redis_db
 
 
 class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
@@ -85,6 +88,17 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             db_module.db.session.add(new_profile)
             db_module.db.session.commit()
+
+            # Revoke access token so that user renews their access token that includes all of his/her profile ids
+            query_result = jwt_module.RefreshToken.query\
+                .filter(jwt_module.RefreshToken.user == access_token.user).all()
+            if not query_result:
+                return AccountResponseCase.access_token_invalid.create_response(
+                    message='User or JWT that mapped to that user not found')
+
+            for target in query_result:
+                # TODO: set can set multiple at once, so use that method instead
+                redis_db.set('refresh_revoke=' + str(target.jti), 'revoked', datetime.timedelta(weeks=2))
 
             return ProfileResponseCase.profile_created.create_response(
                 header=(('ETag', new_profile.commit_id), ),

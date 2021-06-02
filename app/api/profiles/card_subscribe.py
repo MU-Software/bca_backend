@@ -46,6 +46,12 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if target_profile_id not in access_token.profile_id:
                 return CardResponseCase.card_forbidden.create_response()
 
+            # Check if card owner is the requested user
+            # if it's ture, then block this
+            if target_card.profile_id in access_token.profile_id:
+                return CardResponseCase.card_forbidden.create_response(
+                    message='User cannot subscribe the card that is created by user self')
+
             # Check if profile already subscribed the card
             target_card_subscription: profile_module.CardSubscribed = profile_module.CardSubscribed.query\
                 .filter(profile_module.CardSubscribed.profile_id == target_profile_id)\

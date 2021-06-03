@@ -35,7 +35,7 @@ def profile_created(profile_row: profile_module.Profile):
             'TB_PROFILE',
             profile_row.uuid,
             sqs_action.UserDBModifyActionCase.add,
-            [model_created, ])).add_to_queue()
+            model_created)).add_to_queue()
 
 
 def profile_modified(profile_row: profile_module.Profile):
@@ -76,7 +76,7 @@ def profile_modified(profile_row: profile_module.Profile):
                     'TB_PROFILE',
                     profile_row.uuid,
                     sqs_action.UserDBModifyActionCase.modify,
-                    [model_changes, ])
+                    model_changes)
 
     for target_user in target_list_of_user_uuid:
         sqs_action.UserDBModifyTaskMessage(target_user, [task_data, ]).add_to_queue()
@@ -92,7 +92,7 @@ def card_created(card_row: profile_module.Card):
             'TB_CARD',
             target_user,
             sqs_action.UserDBModifyActionCase.add,
-            [model_created, ])).add_to_queue()
+            model_created)).add_to_queue()
 
 
 def card_modified(card_row: profile_module.Card):
@@ -121,7 +121,7 @@ def card_modified(card_row: profile_module.Card):
                     'TB_CARD',
                     card_row.uuid,
                     sqs_action.UserDBModifyActionCase.modify,
-                    [model_changes, ])
+                    model_changes)
 
     for target_user in target_list_of_user_uuid:
         sqs_action.UserDBModifyTaskMessage(target_user, [task_data, ]).add_to_queue()

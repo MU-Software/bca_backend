@@ -31,11 +31,11 @@ def profile_created(profile_row: profile_module.Profile):
     model_created: dict[str, typing.Any] = {k: getattr(profile_row, k) for k in UserDB_ProfileTable_Columns}
     sqs_action.UserDBModifyTaskMessage(
         profile_row.user_id,
-        sqs_action.UserDBModifyData(
+        [sqs_action.UserDBModifyData(
             'TB_PROFILE',
             profile_row.uuid,
             sqs_action.UserDBModifyActionCase.add,
-            model_created)).add_to_queue()
+            model_created), ]).add_to_queue()
 
 
 def profile_modified(profile_row: profile_module.Profile):
@@ -88,11 +88,11 @@ def card_created(card_row: profile_module.Card):
     model_created: dict[str, typing.Any] = {k: getattr(card_row, k) for k in UserDB_CardTable_Columns}
     sqs_action.UserDBModifyTaskMessage(
         target_user,
-        sqs_action.UserDBModifyData(
+        [sqs_action.UserDBModifyData(
             'TB_CARD',
             target_user,
             sqs_action.UserDBModifyActionCase.add,
-            model_created)).add_to_queue()
+            model_created), ]).add_to_queue()
 
 
 def card_modified(card_row: profile_module.Card):

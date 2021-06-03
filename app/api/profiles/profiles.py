@@ -104,7 +104,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # Apply new card data to user db
             try:
-                sqs_action_def.card_created(new_profile)
+                sqs_action_def.profile_created(new_profile)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
 

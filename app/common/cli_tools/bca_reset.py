@@ -7,9 +7,9 @@ import app.common.utils as utils
 import app.database
 
 
-@click.command('reset-bca')
+@click.command('reset-bca-user-resource')
 @flask.cli.with_appcontext
-def drop_db():
+def reset_bca_user_resource():
     restapi_ver = flask.current_app.config.get('RESTAPI_VERSION', 'prod')
     region_name = flask.current_app.config.get('AWS_REGION')
     bucket_name = flask.current_app.config.get('AWS_S3_BUCKET_NAME')

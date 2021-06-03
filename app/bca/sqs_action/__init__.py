@@ -68,7 +68,7 @@ def create_changelog_from_session(db: fsql.SQLAlchemy) -> list[UserDBModifyData]
     target_tables = {
         'TB_PROFILE': user_db_table.Profile,
         'TB_CARD': user_db_table.Card,
-        'TB_CARD_SUBSCRIBED': user_db_table.CardSubscription
+        'TB_CARD_SUBSCRIPTION': user_db_table.CardSubscription
     }
     changes: list[UserDBModifyData] = list()
 
@@ -97,7 +97,7 @@ def create_changelog_from_session(db: fsql.SQLAlchemy) -> list[UserDBModifyData]
                                       if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
 
         if type(row_created).__tablename__ == 'TB_CARD_SUBSCRIBED':
-            row_created: profile_module.CardSubscribed = row_created
+            row_created: profile_module.CardSubscription = row_created
             # TODO: Add Card and Profile data too
             target_card: profile_module.Card = profile_module.Card.query\
                 .filter(profile_module.Card.uuid == row_created.card_id)\

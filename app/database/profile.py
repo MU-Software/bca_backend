@@ -94,7 +94,7 @@ class Card(db_module.DefaultModelMixin, db.Model):
     data = db.Column(db.String, unique=False, nullable=False)  # Card data (in json)
     preview_url = db.Column(db.String, unique=True, nullable=False)  # Card preview image URL
 
-    subscribed_profile_relations: list['CardSubscribed'] = None  # Backref of CardSubscribed
+    subscribed_profile_relations: list['CardSubscription'] = None  # Backref of CardSubscription
 
     # if the card locked, then anyone cannot access, and this must not be shown on list.
     # This looks quite same as deleted, but...
@@ -148,10 +148,10 @@ class Card(db_module.DefaultModelMixin, db.Model):
         return result
 
 
-class CardSubscribed(db_module.DefaultModelMixin, db.Model):
-    __tablename__ = 'TB_CARD_SUBSCRIBED'
+class CardSubscription(db_module.DefaultModelMixin, db.Model):
+    __tablename__ = 'TB_CARD_SUBSCRIPTION'
     uuid = db.Column(db_module.PrimaryKeyType,
-                     db.Sequence('SQ_CardSubscribed_UUID'),
+                     db.Sequence('SQ_CardSubscription_UUID'),
                      primary_key=True,
                      nullable=False)
 
@@ -159,16 +159,16 @@ class CardSubscribed(db_module.DefaultModelMixin, db.Model):
     card: Card = db.relationship('Card',
                                  primaryjoin=card_id == Card.uuid,
                                  backref=db.backref('subscribed_profile_relations',
-                                                    order_by='CardSubscribed.created_at.desc()'))
+                                                    order_by='CardSubscription.created_at.desc()'))
 
     profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
     profile: Profile = db.relationship('Profile',
                                        primaryjoin=profile_id == Profile.uuid,
                                        backref=db.backref('card_subscribing',
-                                                          order_by='CardSubscribed.created_at.desc()'))
+                                                          order_by='CardSubscription.created_at.desc()'))
 
     @classmethod
-    def get_followings(cls: 'CardSubscribed', profile_id: int) -> list:
+    def get_followings(cls: 'CardSubscription', profile_id: int) -> list:
         # We excluded Profile.deleted_at == None,
         # because there's a case that
         #  1. Profile B subscribed a Card 1 of Profile A,
@@ -176,13 +176,13 @@ class CardSubscribed(db_module.DefaultModelMixin, db.Model):
         # In this case, Profile B can access to Card 1 after deleting profile A,
         # and Card 1 is accessible through profile A.
         # Yeah, we need to left Profile A on Profile B's following lists
-        result = CardSubscribed.query\
-            .join(Card, CardSubscribed.card)\
-            .options(sqlorm.contains_eager(CardSubscribed.card))\
+        result = CardSubscription.query\
+            .join(Card, CardSubscription.card)\
+            .options(sqlorm.contains_eager(CardSubscription.card))\
             .join(Profile, Card.profile_id)\
             .options(sqlorm.contains_eager(Card.profile_id))\
             .filter(Profile.locked_at == None)\
-            .filter(CardSubscribed.profile_id == profile_id)\
+            .filter(CardSubscription.profile_id == profile_id)\
             .group_by(Card.profile_id)\
             .all()  # noqa
 

@@ -53,9 +53,9 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     message='User cannot subscribe the card that is created by user self')
 
             # Check if profile already subscribed the card
-            target_card_subscription: profile_module.CardSubscribed = profile_module.CardSubscribed.query\
-                .filter(profile_module.CardSubscribed.profile_id == target_profile_id)\
-                .filter(profile_module.CardSubscribed.card_id == card_id)\
+            target_card_subscription: profile_module.CardSubscription = profile_module.CardSubscription.query\
+                .filter(profile_module.CardSubscription.profile_id == target_profile_id)\
+                .filter(profile_module.CardSubscription.card_id == card_id)\
                 .first()
             if target_card_subscription:
                 # Card is already subscribed!
@@ -66,7 +66,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if target_card.private:
                 return CardResponseCase.card_forbidden.create_response()
 
-            new_subscription = profile_module.CardSubscribed()
+            new_subscription = profile_module.CardSubscription()
             new_subscription.profile_id = target_profile_id
             new_subscription.card_id = target_card.uuid
 
@@ -115,9 +115,9 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ProfileResponseCase.profile_not_found.create_response()
 
             # Check if profile subscribes the card
-            target_card_subscription: profile_module.CardSubscribed = profile_module.CardSubscribed.query\
-                .filter(profile_module.CardSubscribed.profile_id == target_profile_id)\
-                .filter(profile_module.CardSubscribed.card_id == card_id)\
+            target_card_subscription: profile_module.CardSubscription = profile_module.CardSubscription.query\
+                .filter(profile_module.CardSubscription.profile_id == target_profile_id)\
+                .filter(profile_module.CardSubscription.card_id == card_id)\
                 .scalar()
             if not target_card_subscription:
                 # Card is not subscribing the card!

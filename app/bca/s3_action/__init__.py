@@ -65,12 +65,12 @@ def create_user_db(user_id: int,
                 .subquery()  # noqa
 
             # All relations between profiles (owned by user) and cards
-            user_card_relations_query = profile_module.CardSubscribed.query\
-                .filter(profile_module.CardSubscribed.profile_id.in_(user_profiles_query))
+            user_card_relations_query = profile_module.CardSubscription.query\
+                .filter(profile_module.CardSubscription.profile_id.in_(user_profiles_query))
 
             # All card id that needs to be added to user DB
             card_ids_that_needs_to_be_added_query = user_card_relations_query\
-                .with_entities(profile_module.CardSubscribed.card_id)
+                .with_entities(profile_module.CardSubscription.card_id)
 
             user_subscripting_cards_query = profile_module.Card.query\
                 .filter(profile_module.Card.uuid.in_(card_ids_that_needs_to_be_added_query))\
@@ -78,13 +78,13 @@ def create_user_db(user_id: int,
 
             # All profile id that needs to be added to user DB
             profile_ids_that_needs_to_be_added_query = user_card_relations_query\
-                .with_entities(profile_module.CardSubscribed.profile_id)
+                .with_entities(profile_module.CardSubscription.profile_id)
 
             user_following_profiles_query = profile_module.Profile.query\
                 .filter(profile_module.Profile.uuid.in_(profile_ids_that_needs_to_be_added_query))\
                 .filter(profile_module.Profile.locked_at == None)  # noqa
 
-            user_card_relations: list[profile_module.CardSubscribed] = user_card_relations_query.all()
+            user_card_relations: list[profile_module.CardSubscription] = user_card_relations_query.all()
             user_subscripting_cards: list[profile_module.Card] = user_subscripting_cards_query\
                 .distinct(profile_module.Card.uuid).all()
             user_following_profiles: list[profile_module.Profile] = user_following_profiles_query\

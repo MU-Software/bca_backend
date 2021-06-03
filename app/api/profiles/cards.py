@@ -49,9 +49,9 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
                     # Profile's private cards can be seen only by card subscriber, profile owner and admin
                     if access_token.role not in ('admin', ) and profile_id not in access_token.profile_id:
-                        card_subscribed: profile_module.CardSubscribed = profile_module.CardSubscribed.query\
-                            .filter(profile_module.CardSubscribed.card_id == card.uuid)\
-                            .filter(profile_module.CardSubscribed.profile_id.in_(access_token.profile_id)).scalar()
+                        card_subscribed: profile_module.CardSubscription = profile_module.CardSubscription.query\
+                            .filter(profile_module.CardSubscription.card_id == card.uuid)\
+                            .filter(profile_module.CardSubscription.profile_id.in_(access_token.profile_id)).scalar()
                         if not card_subscribed:
                             continue
                 response_cards.append(card.to_dict())

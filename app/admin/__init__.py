@@ -23,7 +23,7 @@ def init_app(app: flask.Flask, add_model_to_view: bool = True):
         admin.add_view(fadmin_sqla.ModelView(jwt_module.RefreshToken, db_module.db.session))
         admin.add_view(fadmin_sqla.ModelView(profile.Profile, db_module.db.session))
         admin.add_view(fadmin_sqla.ModelView(profile.Card, db_module.db.session))
-        admin.add_view(fadmin_sqla.ModelView(profile.CardSubscribed, db_module.db.session))
+        admin.add_view(fadmin_sqla.ModelView(profile.CardSubscription, db_module.db.session))
 
     import app.admin.token_revoke as token_revoke
     admin.add_view(token_revoke.Admin_TokenRevoke_View(name='Token Revoke', endpoint='token-revoke'))

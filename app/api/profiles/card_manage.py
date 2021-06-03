@@ -49,7 +49,7 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 # Private or deleted cards can be seen only by card subscriber, profile owner and admin
                 if access_token.role not in ('admin', ) and target_card.profile_id not in access_token.profile_id:
                     # if user subscribed this private card, then show it.
-                    if not profile_module.CardSubscribed.query\
+                    if not profile_module.CardSubscription.query\
                             .filter(profile_module.Card.card_id == card_id)\
                             .filter(profile_module.Card.profile_id.in_(access_token.profile_id))\
                             .scalar():
@@ -118,8 +118,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # Now, find the users that needs to be applied changelog on user db
             try:
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
-                    .filter(profile_module.CardSubscribed.card_id == card_id)
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
+                    .filter(profile_module.CardSubscription.card_id == card_id)
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
                     .filter(profile_module.Profile.locked_at == None)\
@@ -181,8 +181,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # Now, find the users that needs to be applied changelog on user db
             try:
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
-                    .filter(profile_module.CardSubscribed.card_id == card_id)
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
+                    .filter(profile_module.CardSubscription.card_id == card_id)
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
                     .filter(profile_module.Profile.locked_at == None)\

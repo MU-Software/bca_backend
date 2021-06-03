@@ -51,9 +51,9 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                         .filter(profile_module.Card.profile_id == target_profile.uuid)\
                         .filter(profile_module.Card.locked_at == None)\
                         .subquery()  # noqa
-                    profile_subscription = profile_module.CardSubscribed.query\
-                        .filter(profile_module.CardSubscribed.card_id.in_(target_profile_cards_subquery))\
-                        .filter(profile_module.CardSubscribed.profile_id.in_(access_token.profile_id))\
+                    profile_subscription = profile_module.CardSubscription.query\
+                        .filter(profile_module.CardSubscription.card_id.in_(target_profile_cards_subquery))\
+                        .filter(profile_module.CardSubscription.profile_id.in_(access_token.profile_id))\
                         .scalar()
                     if not profile_subscription:
                         return ProfileResponseCase.profile_forbidden.create_response()
@@ -128,8 +128,8 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
                     .filter(profile_module.Card.profile_id == profile_id)\
                     .filter(profile_module.Card.locked_at == None)  # noqa
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
-                    .filter(profile_module.CardSubscribed.card_id.in_(profile_cards_subquery))
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
+                    .filter(profile_module.CardSubscription.card_id.in_(profile_cards_subquery))
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
                     .filter(profile_module.Profile.locked_at == None)\
@@ -196,8 +196,8 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
                     .filter(profile_module.Card.profile_id == profile_id)\
                     .filter(profile_module.Card.locked_at == None)  # noqa
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscribed.profile_id)\
-                    .filter(profile_module.CardSubscribed.card_id.in_(profile_cards_subquery))
+                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
+                    .filter(profile_module.CardSubscription.card_id.in_(profile_cards_subquery))
                 users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
                     .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
                     .filter(profile_module.Profile.locked_at == None)\

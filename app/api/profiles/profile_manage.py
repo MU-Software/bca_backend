@@ -8,7 +8,7 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
-import app.bca.sqs_action as sqs_action
+import app.bca.sqs_action.action_definition as sqs_action_def
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.profile_response_case import ProfileResponseCase
@@ -119,26 +119,11 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if column in req_body:
                     setattr(target_profile, column, req_body[column])
 
-            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
-            # Now, find the users that needs to be applied changelog on user db
+            # Now, apply this on user db
             try:
-                # Need to find all users that follows this profile
-                profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
-                    .filter(profile_module.Card.profile_id == profile_id)\
-                    .filter(profile_module.Card.locked_at == None)  # noqa
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
-                    .filter(profile_module.CardSubscription.card_id.in_(profile_cards_subquery))
-                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
-                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at == None)\
-                    .distinct(profile_module.Profile.user_id).all()  # noqa
-                users_id_of_profiles = [user_id[0] for user_id in users_id_of_profiles]
-
-                for user_id in users_id_of_profiles:
-                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
-
+                sqs_action_def.profile_modified(target_profile)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
 
@@ -187,26 +172,13 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_profile.deleted_by_id = access_token.user
             target_profile.why_deleted = 'SELF_DELETED'
 
-            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
-            # Find the users that needs to be applied changelog on user db
+            # Now, apply this on user db
             try:
-                # Need to find all users that follows this profile
-                profile_cards_subquery = db_module.db.session.query(profile_module.Card.uuid)\
-                    .filter(profile_module.Card.profile_id == profile_id)\
-                    .filter(profile_module.Card.locked_at == None)  # noqa
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
-                    .filter(profile_module.CardSubscription.card_id.in_(profile_cards_subquery))
-                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
-                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at == None)\
-                    .distinct(profile_module.Profile.user_id).all()  # noqa
-                users_id_of_profiles = [user_id[0] for user_id in users_id_of_profiles]
-
-                for user_id in users_id_of_profiles:
-                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
-
+                # Actually, Profile deletion doesn't delete profile.
+                # Instead, this marks profile as deleted, so this is Profile Modification.
+                sqs_action_def.profile_modified(target_profile)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
 

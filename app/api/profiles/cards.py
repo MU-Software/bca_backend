@@ -4,10 +4,13 @@ import secrets
 import string
 import typing
 
+import app.common.utils as utils
 import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
+
+import app.bca.sqs_action.action_definition as sqs_action_def
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.profile_response_case import ProfileResponseCase
@@ -108,6 +111,12 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             db_module.db.session.add(new_card)
             db_module.db.session.commit()
+
+            # Apply new card data to user db
+            try:
+                sqs_action_def.card_created(new_card)
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
 
             return CardResponseCase.card_created.create_response(
                 header=(('ETag', new_card.commit_id), ),

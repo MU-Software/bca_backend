@@ -8,7 +8,7 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
-import app.bca.sqs_action as sqs_action
+import app.bca.sqs_action.action_definition as sqs_action_def
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.card_response_case import CardResponseCase
@@ -113,22 +113,11 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if column in req_body:
                     setattr(target_card, column, req_body[column])
 
-            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
-            # Now, find the users that needs to be applied changelog on user db
+            # Now, create and apply user db task
             try:
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
-                    .filter(profile_module.CardSubscription.card_id == card_id)
-                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
-                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at == None)\
-                    .distinct(profile_module.Profile.user_id).all()  # noqa
-                users_id_of_profiles = [user_id[0] for user_id in users_id_of_profiles]
-
-                for user_id in users_id_of_profiles:
-                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
-
+                sqs_action_def.card_modified(target_card)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
 
@@ -176,22 +165,13 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.deleted_by_id = access_token.user
             target_card.why_deleted = 'SELF_DELETED'
 
-            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
             # Now, find the users that needs to be applied changelog on user db
             try:
-                profiles_that_subscribes_cards = db_module.db.session.query(profile_module.CardSubscription.profile_id)\
-                    .filter(profile_module.CardSubscription.card_id == card_id)
-                users_id_of_profiles = db_module.db.session.query(profile_module.Profile.user_id)\
-                    .filter(profile_module.Profile.uuid.in_(profiles_that_subscribes_cards))\
-                    .filter(profile_module.Profile.locked_at == None)\
-                    .distinct(profile_module.Profile.user_id).all()  # noqa
-                users_id_of_profiles = [user_id[0] for user_id in users_id_of_profiles]
-
-                for user_id in users_id_of_profiles:
-                    sqs_action.UserDBModifyTaskMessage(user_id, user_db_changelog).add_to_queue()
-
+                # Actually, Card deletion doesn't delete card.
+                # Instead, this marks card as deleted, so this is Card Modification.
+                sqs_action_def.card_modified(target_card)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
 

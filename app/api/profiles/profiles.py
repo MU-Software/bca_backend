@@ -1,11 +1,13 @@
 import datetime
 import flask
 
+import app.common.utils as utils
 import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.user as user_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
+import app.bca.sqs_action.action_definition as sqs_action_def
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -99,6 +101,12 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             for target in query_result:
                 # TODO: set can set multiple at once, so use that method instead
                 redis_db.set('refresh_revoke=' + str(target.jti), 'revoked', datetime.timedelta(weeks=2))
+
+            # Apply new card data to user db
+            try:
+                sqs_action_def.card_created(new_profile)
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
 
             return ProfileResponseCase.profile_created.create_response(
                 header=(('ETag', new_profile.commit_id), ),

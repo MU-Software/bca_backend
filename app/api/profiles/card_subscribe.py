@@ -7,7 +7,7 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.profile as profile_module
-import app.bca.sqs_action as sqs_action
+import app.bca.sqs_action.action_definition as sqs_action_def
 
 from app.api.response_case import CommonResponseCase
 from app.api.profiles.card_response_case import CardResponseCase
@@ -71,13 +71,12 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_subscription.card_id = target_card.uuid
 
             db_module.db.session.add(new_subscription)
-            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
             db_module.db.session.commit()
 
-            tgt_lg = [changelog for changelog in user_db_changelog if changelog.tablename == 'TB_CARD_SUBSCRIPTION'][0]
-            tgt_lg.uuid = new_subscription.uuid
-
-            sqs_action.UserDBModifyTaskMessage(target_profile_id, user_db_changelog).add_to_queue()
+            try:
+                sqs_action_def.card_subscribed(new_subscription, target_card)
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
 
             return CardResponseCase.card_subscribed.create_response()
 
@@ -123,11 +122,14 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 # Card is not subscribing the card!
                 return CardResponseCase.card_not_subscribing.create_response()
 
-            db_module.db.session.delete(target_card_subscription)
-            user_db_changelog = sqs_action.create_changelog_from_session(db_module.db)
-            db_module.db.session.commit()
+            # Apply card unsubscription on user db
+            try:
+                sqs_action_def.card_unsubscribed(target_card_subscription)
+            except Exception as err:
+                print(utils.get_traceback_msg(err))
 
-            sqs_action.UserDBModifyTaskMessage(target_profile.user_id, user_db_changelog).add_to_queue()
+            db_module.db.session.delete(target_card_subscription)
+            db_module.db.session.commit()
 
             return CardResponseCase.card_unsubscribed.create_response()
 

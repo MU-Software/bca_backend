@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <!-- <script src="https://cdn.jsdelivr.net/npm/baffle@0.3.6/dist/baffle.min.js" crossorigin></script> -->
+    <!-- <script src="https://use.fontawesome.com/releases/v5.2.0/js/all.js"></script> -->
+    <meta name="viewport" content="width=device-width">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+
+
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+      /* PC */
+      body {
+        font-size: 12pt;
+      }
+      section aside {
+        width: 100%;
+        max-width: 480px;
+      }
+      img {
+        border-radius: 16px;
+      }
+
+      #screenWidthTooNarrow {
+        display: none;
+      }
+
+      @media screen and (max-width: 632px) {
+        /* Mobile */
+        main {
+          padding: 16px;
+        }
+        section aside {
+          margin-top: 0;
+          width: 100%;
+          max-width: 480px;
+        }
+      }
+      @media screen and (max-width: 279px) {
+        /* Hide everything and show error message*/
+        body {
+          background-color: lightcoral;
+        }
+        body > * {
+          display: none;
+        }
+        #screenWidthTooNarrow {
+          display: block;
+          font-size: 24pt;
+          word-wrap: break-word;
+        }
+      }
+    </style>
+    <title>{{profile_name}}님의 명함</title>
+    <script>
+      function doSubscribe(el) {
+        // TODO: Need to get refresh token or access token&x-csrf-token
+        var targetUrl = el.dataset.subscriptionUrl
+        console.log(targetUrl)
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("PUT", targetUrl, true);
+        xhr.setRequestHeader('Content-type','application/json; charset=utf-8');
+        xhr.onload = function () {
+          if (xhr.readyState == 4 && xhr.status == '200') {
+            alert('명함을 구독했습니다!');
+            location.reload();
+          } else {
+            alert('문제가 발생해서 명함을 구독하지 못했습니다ㅠㅜ');
+            location.reload();
+          }
+        }
+        xhr.send();
+      }
+    </script>
+  </head>
+  <body>
+    <div id="screenWidthTooNarrow">
+      프로필을 보이기에 화면이 너무 좁습니다,</br>
+      다른 기기에서 다시 링크를 열어주세요.
+    </div>
+    <main>
+      <section>
+        <aside>
+          <img src="https://via.placeholder.com/480X304.png" />
+          <h3 style="margin-top: 0; width: 100%; text-align: center;">{{card_name}}</h3>
+
+          <hr style="margin-top: 16px; margin-bottom: 16px;"/>
+
+          <h2 style="margin-bottom: 0;">{{profile_name}}님</h2>
+          <h5 style="margin-top: 0;">{{profile_company}} {{profile_position}}</h5>
+          <p style="margin-top: -6px;">{{profile_description}}</p>
+
+          <hr style="margin-top: 16px; margin-bottom: 16px;"/>
+
+          <h4 style="margin-bottom: 0;">프로필 정보</h4>
+          <table style="width: 100%;">
+            {% for column in profile_data %}
+            <tr><th>{{column.name}}</th><td>{{column.data}}</td></tr>
+            {% endfor %}
+          </table>
+
+          <hr style="margin-top: 16px; margin-bottom: 16px;"/>
+          <button
+            style="width: 100%;"
+            data-subscription-url="{{card_subscription_url}}"
+            onclick="doSubscribe(this);" >
+            이 명함 구독하기
+          </button>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

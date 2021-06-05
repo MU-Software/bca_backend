@@ -12,6 +12,7 @@ user-agents
 firebase-admin
 boto3
 apispec
+sadisplay
 
 flask
 flask-cors

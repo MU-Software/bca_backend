@@ -20,7 +20,7 @@ def draw_db_erd():
         import codecs
         import sadisplay
 
-        desc = sadisplay.describe(db.metadata.tables.items())
+        desc = sadisplay.describe([table_data[1] for table_data in db.metadata.tables.items()])
 
         with codecs.open(pt.Path(f'docs/{restapi_version}_db.dot'), 'w', encoding='utf-8') as f:
             f.write(sadisplay.dot(desc))

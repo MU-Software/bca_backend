@@ -142,7 +142,7 @@ def card_subscribed(
     if profile_data is None:
         # Do query of following profile
         profile_data = profile_module.Profile.query\
-            .filter(profile_module.Profile.uuid == card_subscription.profile_id).first()
+            .filter(profile_module.Profile.uuid == card_data.profile_id).first()
         if not profile_data:
             raise Exception('Profile not found while creating task. How could this happened?')
 

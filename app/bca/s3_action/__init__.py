@@ -79,8 +79,9 @@ def create_user_db(user_id: int,
                 .filter(profile_module.Card.locked_at == None)  # noqa
 
             # All profile id that needs to be added to user DB
-            profile_ids_that_needs_to_be_added_query = user_card_relations_query\
-                .with_entities(profile_module.CardSubscription.profile_id)
+            profile_ids_that_needs_to_be_added_query = profile_module.Card.query\
+                .filter(profile_module.Card.uuid.in_(card_ids_that_needs_to_be_added_query))\
+                .with_entities(profile_module.Card.profile_id)
 
             user_following_profiles_query = profile_module.Profile.query\
                 .filter(

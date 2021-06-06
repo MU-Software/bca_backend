@@ -179,7 +179,7 @@ def card_unsubscribed(card_subscription: profile_module.CardSubscription):
     task_cardsubscription_data = sqs_action.UserDBModifyData(
         'TB_CARD_SUBSCRIPTION',
         card_subscription.uuid,
-        sqs_action.UserDBModifyActionCase)
+        sqs_action.UserDBModifyActionCase.delete)
     sqs_action.UserDBModifyTaskMessage(
         card_subscription.profile.user_id,
         [task_cardsubscription_data, ]).add_to_queue()

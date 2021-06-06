@@ -52,7 +52,7 @@ def profile_modified(profile_row: profile_module.Profile):
 
     # 1. Querying this profile's cards
     subquery_cards_of_profile = db.session.query(profile_module.Card.uuid)\
-        .filter(profile_module.Card.locked_at != None)\
+        .filter(profile_module.Card.locked_at == None)\
         .filter(profile_module.Card.profile_id == profile_row.uuid)\
         .subquery()  # noqa
 
@@ -63,11 +63,11 @@ def profile_modified(profile_row: profile_module.Profile):
 
     # 3. Get distinct user uuid of those subscribers
     query_user_uuid_of_followers_of_modified_profile = db.session.query(profile_module.Profile.user_id)\
-        .filter(profile_module.Profile.locked_at != None)\
+        .filter(profile_module.Profile.locked_at == None)\
         .filter(profile_module.Profile.uuid.in_(subquery_subscribing_profiles_of_cards_of_profile))\
         .distinct().order_by(profile_module.Profile.user_id)  # noqa
 
-    target_list_of_user_uuid: list[int] = query_user_uuid_of_followers_of_modified_profile.all()
+    target_list_of_user_uuid: list[int] = [z[0] for z in query_user_uuid_of_followers_of_modified_profile.all()]
     target_list_of_user_uuid = target_list_of_user_uuid or list()
     target_list_of_user_uuid.append(profile_row.user_id)  # Add profile owner himself/herself
 
@@ -108,11 +108,11 @@ def card_modified(card_row: profile_module.Card):
         .subquery()
     # 2. Get all user uuid of those subscribers
     query_user_uuid_of_subscribers = db.session.query(profile_module.Profile.user_id)\
-        .filter(profile_module.Profile.locked_at != None)\
+        .filter(profile_module.Profile.locked_at == None)\
         .filter(profile_module.Profile.uuid.in_(subquery_subscribing_profiles_of_cards))\
         .distinct().order_by(profile_module.Profile.user_id)  # noqa
 
-    target_list_of_user_uuid: list[int] = query_user_uuid_of_subscribers.all()
+    target_list_of_user_uuid: list[int] = [z[0] for z in query_user_uuid_of_subscribers.all()]
     target_list_of_user_uuid = target_list_of_user_uuid or list()
     target_list_of_user_uuid.append(card_row.profile.user_id)  # Add profile owner himself/herself
 

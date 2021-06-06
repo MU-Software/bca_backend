@@ -113,13 +113,13 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if column in req_body:
                     setattr(target_card, column, req_body[column])
 
-            db_module.db.session.commit()
-
             # Now, create and apply user db task
             try:
                 sqs_action_def.card_modified(target_card)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
+
+            db_module.db.session.commit()
 
             return CardResponseCase.card_modified.create_response()
         except Exception:
@@ -165,8 +165,6 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.deleted_by_id = access_token.user
             target_card.why_deleted = 'SELF_DELETED'
 
-            db_module.db.session.commit()
-
             # Now, find the users that needs to be applied changelog on user db
             try:
                 # Actually, Card deletion doesn't delete card.
@@ -174,6 +172,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 sqs_action_def.card_modified(target_card)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
+
+            db_module.db.session.commit()
 
             return CardResponseCase.card_deleted.create_response()
         except Exception:

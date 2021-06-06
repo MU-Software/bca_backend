@@ -120,13 +120,13 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if column in req_body:
                     setattr(target_profile, column, req_body[column])
 
-            db_module.db.session.commit()
-
             # Now, apply this on user db
             try:
                 sqs_action_def.profile_modified(target_profile)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
+
+            db_module.db.session.commit()
 
             return ProfileResponseCase.profile_deleted.create_response()
         except Exception:
@@ -173,8 +173,6 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_profile.deleted_by_id = access_token.user
             target_profile.why_deleted = 'SELF_DELETED'
 
-            db_module.db.session.commit()
-
             # Now, apply this on user db
             try:
                 # Actually, Profile deletion doesn't delete profile.
@@ -182,6 +180,8 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 sqs_action_def.profile_modified(target_profile)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
+
+            db_module.db.session.commit()
 
             return ProfileResponseCase.profile_deleted.create_response()
         except Exception:

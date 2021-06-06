@@ -124,7 +124,7 @@ def create_user_db(user_id: int,
                 temp_user_db_session.add(new_card)
 
             for card_relation in user_card_relations:
-                new_card_subscription = CardTable()
+                new_card_subscription = CardSubscriptionTable()
 
                 target_columns = (
                     'uuid', 'profile_id', 'card_id',

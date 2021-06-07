@@ -73,6 +73,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db_module.db.session.add(new_subscription)
             db_module.db.session.commit()
 
+            # This must be done after commit to get commit_id and modified_at columns' data
             try:
                 sqs_action_def.card_subscribed(new_subscription, target_card)
             except Exception as err:

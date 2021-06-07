@@ -3,7 +3,6 @@ import sqlalchemy as sql
 import sqlalchemy.ext.declarative as sqldec
 import sqlalchemy.util as sqlutil
 
-import app.common.utils as utils
 import app.database as db_module
 import app.database.profile as profile_module
 import app.bca.database.user_db_table as user_db_table
@@ -38,12 +37,16 @@ def profile_created(profile_row: profile_module.Profile):
             model_created), ]).add_to_queue()
 
 
-def profile_modified(profile_row: profile_module.Profile):
+def profile_modified(
+        profile_row: profile_module.Profile,
+        profile_row_changeset: dict[str, list[typing.Any, typing.Any]]):
     # Do task to all followers of this profile
 
-    # Calculate changes and filter it
-    model_changes: dict[str, list[typing.Any, typing.Any]] = utils.get_model_changes(profile_row)
-    model_changes = {k: v[1] for k, v in model_changes.items() if k in UserDB_ProfileTable_Columns}
+    # Calculate changes and filter it.
+    # We need to calculate changeset outside of function,
+    # because some data have to be gotten before service-db-commit,
+    # and some data have to be gotten *after* service-db-commit.
+    model_changes = {k: v[1] for k, v in profile_row_changeset.items() if k in UserDB_ProfileTable_Columns}
 
     # Calculate followers(target users) by
     #   1. Query this profile's cards
@@ -95,12 +98,16 @@ def card_created(card_row: profile_module.Card):
             model_created), ]).add_to_queue()
 
 
-def card_modified(card_row: profile_module.Card):
+def card_modified(
+        card_row: profile_module.Card,
+        card_row_changeset: dict[str, list[typing.Any, typing.Any]]):
     # Do task to all subscribers of this card
 
-    # Calculate changes and filter it
-    model_changes: dict[str, list[typing.Any, typing.Any]] = utils.get_model_changes(card_row)
-    model_changes = {k: v[1] for k, v in model_changes.items() if k in UserDB_CardTable_Columns}
+    # Calculate changes and filter it.
+    # We need to calculate changeset outside of function,
+    # because some data have to be gotten before service-db-commit,
+    # and some data have to be gotten *after* service-db-commit.
+    model_changes = {k: v[1] for k, v in card_row_changeset.items() if k in UserDB_CardTable_Columns}
 
     # 1. Find all subscribers of this card
     subquery_subscribing_profiles_of_cards = db.session.query(profile_module.CardSubscription.profile_id)\

@@ -120,13 +120,17 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if column in req_body:
                     setattr(target_profile, column, req_body[column])
 
-            # Now, apply this on user db
+            # Calculate changeset of row, commit, and get commit_id
+            changeset: dict[str, list] = utils.get_model_changes(target_profile)
+            db_module.db.session.commit()
+            changeset['commit_id'] = [None, target_profile.commit_id]
+            changeset['modified_at'] = [None, target_profile.modified_at]
+
+            # Now, create and apply this on user db
             try:
-                sqs_action_def.profile_modified(target_profile)
+                sqs_action_def.profile_modified(target_profile, changeset)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
-
-            db_module.db.session.commit()
 
             return ProfileResponseCase.profile_deleted.create_response()
         except Exception:
@@ -173,15 +177,17 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_profile.deleted_by_id = access_token.user
             target_profile.why_deleted = 'SELF_DELETED'
 
-            # Now, apply this on user db
+            # Calculate changeset of row, commit, and get commit_id
+            changeset: dict[str, list] = utils.get_model_changes(target_profile)
+            db_module.db.session.commit()
+            changeset['commit_id'] = [None, target_profile.commit_id]
+            changeset['modified_at'] = [None, target_profile.modified_at]
+
+            # Now, create and apply this on user db
             try:
-                # Actually, Profile deletion doesn't delete profile.
-                # Instead, this marks profile as deleted, so this is Profile Modification.
-                sqs_action_def.profile_modified(target_profile)
+                sqs_action_def.profile_modified(target_profile, changeset)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
-
-            db_module.db.session.commit()
 
             return ProfileResponseCase.profile_deleted.create_response()
         except Exception:

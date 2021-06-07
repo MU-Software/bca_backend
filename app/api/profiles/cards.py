@@ -113,6 +113,7 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db_module.db.session.commit()
 
             # Apply new card data to user db
+            # This must be done after commit to get commit_id and modified_at columns' data
             try:
                 sqs_action_def.card_created(new_card)
             except Exception as err:

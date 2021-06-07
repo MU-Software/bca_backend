@@ -113,13 +113,17 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 if column in req_body:
                     setattr(target_card, column, req_body[column])
 
+            # Calculate changeset of row, commit, and get commit_id
+            changeset: dict[str, list] = utils.get_model_changes(target_card)
+            db_module.db.session.commit()
+            changeset['commit_id'] = [None, target_card.commit_id]
+            changeset['modified_at'] = [None, target_card.modified_at]
+
             # Now, create and apply user db task
             try:
-                sqs_action_def.card_modified(target_card)
+                sqs_action_def.card_modified(target_card, changeset)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
-
-            db_module.db.session.commit()
 
             return CardResponseCase.card_modified.create_response()
         except Exception:
@@ -165,15 +169,19 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.deleted_by_id = access_token.user
             target_card.why_deleted = 'SELF_DELETED'
 
-            # Now, find the users that needs to be applied changelog on user db
+            # Calculate changeset of row, commit, and get commit_id
+            # Actually, Card deletion doesn't delete card.
+            # Instead, this marks card as deleted, so this is Card Modification.
+            changeset: dict[str, list] = utils.get_model_changes(target_card)
+            db_module.db.session.commit()
+            changeset['commit_id'] = [None, target_card.commit_id]
+            changeset['modified_at'] = [None, target_card.modified_at]
+
+            # Now, create and apply user db task
             try:
-                # Actually, Card deletion doesn't delete card.
-                # Instead, this marks card as deleted, so this is Card Modification.
-                sqs_action_def.card_modified(target_card)
+                sqs_action_def.card_modified(target_card, changeset)
             except Exception as err:
                 print(utils.get_traceback_msg(err))
-
-            db_module.db.session.commit()
 
             return CardResponseCase.card_deleted.create_response()
         except Exception:

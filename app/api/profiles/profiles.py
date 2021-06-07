@@ -103,6 +103,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 redis_db.set('refresh_revoke=' + str(target.jti), 'revoked', datetime.timedelta(weeks=2))
 
             # Apply new card data to user db
+            # This must be done after commit to get commit_id and modified_at columns' data
             try:
                 sqs_action_def.profile_created(new_profile)
             except Exception as err:

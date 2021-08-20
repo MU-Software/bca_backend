@@ -1,20 +1,15 @@
-import base64
 import datetime
 import flask
 import flask.views
-import jwt
 from passlib.hash import argon2
-import secrets
 import sqlalchemy as sql
 
 import app.api.helper_class as api_class
 import app.common.utils as utils
-import app.common.mailgun.aws_ses as mailgun_aws
+import app.common.mailgun as mailgun
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
-import app.common.decorator as deco_module
-import app.bca.s3_action as s3_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -26,7 +21,6 @@ signup_verify_mail_valid_duration: datetime.timedelta = datetime.timedelta(hours
 
 
 class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @deco_module.PERMISSION(deco_module.need_signed_out)
     @api_class.RequestHeader(
         required_fields={
             'User-Agent': {'type': 'string', },
@@ -64,6 +58,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'pw': reason},)})
 
+        # Create new user
         new_user = user.User()
         new_user.email = req_body['email']
         new_user.id = req_body['id']
@@ -71,64 +66,49 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
         new_user.password = argon2.hash(req_body['pw'])
         new_user.pw_changed_at = sql.func.now()
         new_user.last_login_date = sql.func.now()
+
+        # If the TB_USER is empty (=this user is the first registered user),
+        # make this user admin.
+        if not db.session.query(user.User).first():
+            new_user.role = '["admin"]'
+
         db.session.add(new_user)
 
         try:
             db.session.commit()
-
-            email_token_exp = datetime.datetime.utcnow().replace(tzinfo=utils.UTC) + signup_verify_mail_valid_duration
-            # Send account verification & confirmation mail
-            email_token = jwt.encode({
-                'api_ver': flask.current_app.config.get('RESTAPI_VERSION'),
-                'iss': flask.current_app.config.get('SERVER_NAME'),
-                'exp': email_token_exp,
-                'sub': 'Email Auth',
-                'jti':  secrets.randbits(64),
-                'user': new_user.uuid,
-                'data': {
-                    'action': 'EMAIL_VERIFY'
-                },
-            }, key=flask.current_app.config.get('SECRET_KEY'), algorithm='HS256')
-
-            new_email_token: user.EmailToken = user.EmailToken()
-            new_email_token.user = new_user
-            new_email_token.action = 'EMAIL_VERIFY'
-            new_email_token.token = email_token
-            new_email_token.expired_at = email_token_exp
-
-            db.session.add(new_email_token)
         except Exception as err:
-            try:
-                err_diag = db_module.IntegrityCaser(err)
-                if err_diag[0] == 'FAILED_UNIQUE':
-                    return AccountResponseCase.user_already_used.create_response(data={'duplicate': dict(err_diag[1])})
-                else:
-                    raise err
-            except Exception:
-                return CommonResponseCase.server_error.create_response()
+            db.session.rollback()
+            err_reason, err_column_name = db_module.IntegrityCaser(err)
+            if err_reason == 'FAILED_UNIQUE':
+                return AccountResponseCase.user_already_used.create_response(
+                    data={'duplicate': [err_column_name, ]})
+            else:
+                raise err
 
-        # bca: create user's db file and upload to s3
-        user_db_file = s3_action.create_user_db(new_user.uuid, True, True)
-        if user_db_file:
-            user_db_file.seek(0)
-
-        mail_sent: bool = True
+        mail_sent = True
         if flask.current_app.config.get('MAIL_ENABLE'):
             try:
+                # Create email token to verification & confirmation mail
+                email_token = user.EmailToken.create(
+                    new_user, user.EmailTokenAction.EMAIL_VERIFICATION, signup_verify_mail_valid_duration)
+
+                http_or_https = 'https://' if flask.current_app.config.get('HTTPS_ENABLE', True) else 'http://'
                 email_result = flask.render_template(
                     'email/email_verify.html',
-                    domain_url=flask.current_app.config.get('SERVER_NAME'),
+                    domain_url=http_or_https + flask.current_app.config.get('SERVER_NAME'),
+                    api_base_url=(http_or_https + flask.current_app.config.get('SERVER_NAME')
+                                  + '/api/' + flask.current_app.config.get('RESTAPI_VERSION')),
                     project_name=flask.current_app.config.get('PROJECT_NAME'),
                     user_nick=new_user.nickname,
-                    email_key=email_token,
-                    language='kor'
-                )
-                mailgun_aws.send_mail(
+                    email_key=email_token.token,
+                    language='kor')
+
+                mail_sent = mailgun.send_mail(
                     fromaddr='do-not-reply@' + flask.current_app.config.get('MAIL_DOMAIN'),
                     toaddr=new_user.email,
                     subject=f'{flask.current_app.config.get("PROJECT_NAME")}에 오신 것을 환영합니다!',
                     message=email_result)
-                mail_sent = True
+
             except Exception:
                 mail_sent = False
 
@@ -142,14 +122,6 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         response_body = {'user': new_user.to_dict()}
         response_body['user'].update(jwt_data_body)
-
-        if user_db_file:
-            user_db_file.seek(0)
-            response_body['db'] = base64.b64encode(user_db_file.read()).decode()
-            response_header = list(jwt_data_header)
-            response_header.append(('ETag', utils.fileobj_md5(user_db_file)))
-            response_header = tuple(response_header)
-            user_db_file.close()
 
         response_type: api_class.Response = AccountResponseCase.user_signed_up
         if not mail_sent:

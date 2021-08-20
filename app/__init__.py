@@ -29,9 +29,12 @@ def create_app():
         import app.common.cli_tools as cli_tools
         cli_tools.init_app(app)
 
+        import app.plugin as plugin
+        plugin.init_app(app)
+
     return app
 
 
 if __name__ == '__main__':
     app = create_app()
-    app.run()
+    app.run(host=os.environ.get('FLASK_RUN_HOST', '127.0.0.1'), port=int(os.environ.get('FLASK_RUN_PORT', 8000)))

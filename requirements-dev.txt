@@ -18,8 +18,6 @@ flask
 flask-cors
 flask-sqlalchemy
 flask-admin
-flask-socketio
-flask-limiter
 
 gunicorn
 

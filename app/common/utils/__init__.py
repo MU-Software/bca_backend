@@ -1,13 +1,16 @@
-#!/usr/bin/env python3.8
 # -*- coding: UTF-8 -*-
 import datetime
 import email
+import enum
 import flask
 import hashlib
 import json
 import math
+import random
+import socket
 import string
 import sqlalchemy as sql
+import sqlalchemy.ext.declarative as sqldec
 import time
 import traceback
 import typing
@@ -320,6 +323,11 @@ class Struct:
         self.__dict__.update(entries)
 
 
+class EnumAutoName(enum.Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
 # ---------- SQLAlchemy helper Function ----------
 def get_model_changes(model):
     """
@@ -360,3 +368,44 @@ def has_model_changed(model):
     Return True if there are any unsaved changes on the model.
     """
     return bool(get_model_changes(model))
+
+
+def create_dynamic_orm_table(
+        base: sqldec.DeclarativeMeta,
+        engine: sql.engine.base.Engine,
+        class_name: str, table_name: str,
+        columns: typing.Optional[list[str]] = None,
+        mixins: tuple = ()):
+
+    table_attrs: dict = {
+        '__tablename__': table_name,
+        '__table_args__': {
+            'sqlite_autoincrement': True,
+            'autoload': True,
+            'autoload_with': engine,
+        },
+    }
+    table_attrs.update(columns if columns else {})
+
+    DynamicORMTable = type(class_name, (*mixins, base), table_attrs)
+    return DynamicORMTable
+
+
+# ---------- Extra tools ----------
+def find_free_random_port(port: int = 24000, max_port: int = 34000) -> int:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tried_ports = list()
+    while True:
+        if len(range(port, max_port)) == len(tried_ports):
+            raise IOError('no free ports')
+
+        port = random.randint(port, max_port)
+        if port in tried_ports:
+            continue
+
+        try:
+            sock.bind(('', port))
+            sock.close()
+            return port
+        except OSError:
+            continue

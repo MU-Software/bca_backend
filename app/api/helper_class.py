@@ -8,6 +8,7 @@ import inspect
 import jwt.exceptions
 import typing
 import unicodedata
+import werkzeug.datastructures as wz_dt
 import yaml
 
 
@@ -88,7 +89,7 @@ def create_response(
         'data': data
     }
 
-    server_name = flask.current_app.config.get('BACKEND_NAME', 'MUsoftware Backend')
+    server_name = flask.current_app.config.get('BACKEND_NAME', 'Backend Core')
 
     result_header = (
         *header,
@@ -106,65 +107,90 @@ def create_response(
 class Response:
     description: str = ''
     code: int = 500
+    header: tuple[tuple[str, str]] = ()
+    content_type: str = 'application/json'
+
+    success: bool = ''
     public_sub_code: str = ''
     private_sub_code: str = ''
-    success: bool = ''
-    message: str = ''
-    header: tuple[tuple[str, str]] = ()
+
+    # data can be JSON body or HTML format data.
     data: dict = dataclasses.field(default_factory=dict)
+    # template should be a path to a html template file that can be found by flask.
+    template_path: str = ''
+    message: str = ''
 
     def to_openapi_obj(self):
-        return {
-            'success': {
-                'type': 'boolean',
-                'enum': [self.success, ],
-            },
-            'code': {
-                'type': 'integer',
-                'enum': [self.code, ],
-            },
-            'sub_code': {
-                'type': 'string',
-                'enum': [self.public_sub_code, ],
-            },
-            'message': {
-                'type': 'string',
-            },
-            'data': {
+        if self.content_type == 'application/json':
+            return {
                 'type': 'object',
-                'properties': recursive_dict_to_openapi_obj(self.data)
-            },
-        }
+                'properties': {
+                    'success': {
+                        'type': 'boolean',
+                        'enum': [self.success, ],
+                    },
+                    'code': {
+                        'type': 'integer',
+                        'enum': [self.code, ],
+                    },
+                    'sub_code': {
+                        'type': 'string',
+                        'enum': [self.public_sub_code, ],
+                    },
+                    'message': {
+                        'type': 'string',
+                    },
+                    'data': {
+                        'type': 'object',
+                        'properties': recursive_dict_to_openapi_obj(self.data)
+                    },
+                },
+            }
+        elif self.content_type == 'text/html':
+            if not self.template_path:
+                raise Exception('template_path must be set when content_type is \'text/html\'')
+            return {
+                'type': 'string',
+                'example': flask.render_template(self.template_path, **self.data),
+            }
 
     def create_response(self,
                         code: int = None,
                         header: tuple[tuple[str]] = (),
                         data: dict = {},
-                        message: typing.Optional[str] = None) -> ResponseType:
+                        message: typing.Optional[str] = None,
+                        template_path: str = '') -> ResponseType:
 
         resp_code: int = code if code is not None else self.code
 
-        resp_header = (tuple(header.items()) if type(header) == dict else header)
-        resp_header += (tuple(self.header.items()) if type(self.header) == dict else tuple(self.header))
-        result_header = (
-            *header,
-            # We don't need to add Content-Type: application/json here
-            # because flask.jsonify will add it.
-            ('Server', flask.current_app.config.get('BACKEND_NAME', 'MUsoftware Backend')),
-        )
+        resp_header = header or self.header
+        result_header = wz_dt.MultiDict((
+            *resp_header,
+            ('Server', flask.current_app.config.get('BACKEND_NAME', 'Backend Core')),
+        ))
 
-        # TODO: Parse YAML file and get response message using public_sub_code
         resp_data = copy.deepcopy(data)
         resp_data.update(data)
-        response_body = {
-            'success': self.success,
-            'code': self.code,
-            'sub_code': self.public_sub_code,
-            'message': message or self.message,
-            'data': resp_data
-        }
 
-        return (flask.jsonify(response_body), resp_code, result_header)
+        resp_template_path = template_path or self.template_path
+
+        if self.content_type == 'application/json':
+            # TODO: Parse YAML file and get response message using public_sub_code
+            response_body = {
+                'success': self.success,
+                'code': self.code,
+                'sub_code': self.public_sub_code,
+                'message': message or self.message,
+                'data': resp_data
+            }
+
+            return (flask.jsonify(response_body), resp_code, result_header)
+        elif self.content_type == 'text/html':
+            if not resp_template_path:
+                raise Exception('template_path must be set when content_type is \'text/html\'')
+            return (flask.render_template(resp_template_path, **resp_data), resp_code, result_header)
+        else:
+            raise NotImplementedError(f'Response type {self.content_type} is not supported.')
 
 
 class ResponseCaseCollector(AutoRegisterClass):
@@ -216,7 +242,7 @@ class MethodViewMixin(AutoRegisterClass):
 
 class AuthType(enum.Enum):
     Bearer = enum.auto()
-    RefreshToken = enum.auto
+    RefreshToken = enum.auto()
 
 
 def json_list_filter(in_list: list, filter_empty_value: bool = True) -> list:
@@ -266,7 +292,7 @@ def json_dict_filter(in_dict: dict, filter_empty_value: bool = True) -> dict:
 
         res_value = None
         # value can be a string, number, object(dict), array(list), boolean(bool), or null(None)
-        # match case please python 3.10
+        # match case please Python 3.10
         if type(v) is str:
             res_value = unicodedata.normalize('NFC', v).strip()
             if filter_empty_value and not res_value:

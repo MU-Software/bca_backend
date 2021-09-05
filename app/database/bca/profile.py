@@ -82,6 +82,70 @@ class Profile(db_module.DefaultModelMixin, db.Model):
         return result
 
 
+class ProfileFollow(db_module.DefaultModelMixin, db.Model):
+    __tablename__ = 'TB_PROFILE_FOLLOW'
+    uuid = db.Column(db_module.PrimaryKeyType,
+                     db.Sequence('SQ_Profile_UUID'),
+                     primary_key=True,
+                     nullable=False)
+
+    profile_1_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    profile_1: Profile = db.relationship('Profile', primaryjoin=profile_1_id == Profile.uuid)
+    user_1_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    user_1: user_module.User = db.relationship('User', primaryjoin=user_1_id == user_module.User.uuid)
+
+    profile_2_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    profile_2: Profile = db.relationship('Profile', primaryjoin=profile_2_id == Profile.uuid)
+    user_2_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    user_2: user_module.User = db.relationship('User', primaryjoin=user_2_id == user_module.User.uuid)
+
+    when_1_followed_2 = db.Column(db.DateTime, nullable=True)
+    when_2_followed_1 = db.Column(db.DateTime, nullable=True)
+
+    subscripted_cards: list['CardSubscription'] = None
+
+    def get_relation_explain(self) -> dict[tuple[int, int]: bool]:
+        '''{(A, B): True} => A IS following B'''
+        return {
+            (self.profile_1_id, self.profile_2_id): self.when_1_followed_2,
+            (self.profile_2_id, self.profile_1_id): self.when_2_followed_1,
+        }
+
+    def mark_as_follow(self, follow_requester_id: int, db_commit: bool = False):
+        if self.profile_1_id == follow_requester_id:
+            if not self.when_1_followed_2:
+                self.when_1_followed_2 = datetime.datetime.utcnow().replace(tz=utils.UTC)
+        else:
+            if not self.when_2_followed_1:
+                self.when_2_followed_1 = datetime.datetime.utcnow().replace(tz=utils.UTC)
+
+        if db_commit:
+            db.session.commit()
+
+    def mark_as_unfollow(self, unfollow_requester_id: int, db_commit: bool = False):
+        if self.profile_1_id == unfollow_requester_id:
+            if self.when_1_followed_2:
+                self.when_1_followed_2 = None
+        else:
+            if self.when_2_followed_1:
+                self.when_2_followed_1 = None
+
+        if db_commit:
+            db.session.commit()
+
+    def to_dict_perspective_of(self, requester_id: int):
+        is_requester_profile_1 = requester_id == self.profile_1_id
+        result_target_id: int = self.profile_2_id if is_requester_profile_1 else self.profile_1_id
+        result_target_following: typing.Optional[datetime.datetime] = self.when_1_followed_2 if is_requester_profile_1\
+            else self.when_2_followed_1
+        return {result_target_id: result_target_following or False}
+
+    def to_dict_reverse_perspective_of(self, requester_id: int):
+        is_requester_profile_1 = requester_id == self.profile_1_id
+        reverse_requester_id: int = self.profile_2_id if is_requester_profile_1 else self.profile_1_id
+        return self.to_dict_perspective_of(reverse_requester_id)
+
+
 class Card(db_module.DefaultModelMixin, db.Model):
     __tablename__ = 'TB_CARD'
     uuid = db.Column(db_module.PrimaryKeyType,

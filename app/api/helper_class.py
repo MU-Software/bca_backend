@@ -331,14 +331,14 @@ class RequestHeader:
         self.optional_fields: dict[str, dict[str, str]] = optional_fields
         self.auth: typing.Optional[dict[AuthType, bool]] = auth
 
-        # if self.auth:
-        #     if AuthType.Bearer in self.auth:
-        #         if self.auth[AuthType.Bearer]:
-        #             self.required_fields['Authorization'] = {'type': 'string', }
-        #             self.required_fields['X-CSRF-Token'] = {'type': 'string', }
-        #         else:
-        #             self.optional_fields['Authorization'] = {'type': 'string', }
-        #             self.optional_fields['X-CSRF-Token'] = {'type': 'string', }
+        if self.auth:
+            if AuthType.Bearer in self.auth:
+                if self.auth[AuthType.Bearer]:
+                    self.required_fields['Authorization'] = {'type': 'string', }
+                    self.required_fields['X-Csrf-Token'] = {'type': 'string', }
+                else:
+                    self.optional_fields['Authorization'] = {'type': 'string', }
+                    self.optional_fields['X-Csrf-Token'] = {'type': 'string', }
 
     def __call__(self, func: typing.Callable):
         @functools.wraps(func)
@@ -425,12 +425,7 @@ class RequestHeader:
                     doc_data['security'] = list()
 
                 for auth in self.auth:
-                    if type(auth) == AuthType:
-                        doc_data['security'].append({auth.name + 'Auth': list(), })
-                    elif type(auth) == tuple:
-                        doc_data['security'].append(dict())
-                        for auth_way in auth:
-                            doc_data['security'][-1][auth_way.name + 'Auth'] = list()
+                    doc_data['security'].append({auth.name + 'Auth': list(), })
 
             if 'parameters' not in doc_data:
                 doc_data['parameters'] = []

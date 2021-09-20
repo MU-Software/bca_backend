@@ -12,9 +12,7 @@ from app.api.bca.sync.sync_response_case import SyncResponseCase
 
 
 class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @api_class.RequestHeader(
-        required_fields={'X-Csrf-Token': {'type': 'string', }, },
-        auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
     def head(self, req_header: dict, access_token: jwt_module.AccessToken):
         '''
         description: Send DB hash
@@ -29,7 +27,6 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
             return CommonResponseCase.server_error.create_response()
 
     @api_class.RequestHeader(
-        required_fields={'X-Csrf-Token': {'type': 'string', }, },
         optional_fields={'If-Match': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
     def get(self, req_header: dict, access_token: jwt_module.AccessToken):
@@ -62,9 +59,7 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
-    @api_class.RequestHeader(
-        required_fields={'X-Csrf-Token': {'type': 'string', }, },
-        auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
     def delete(self, req_header: dict, access_token: jwt_module.AccessToken):
         '''
         description: Recreate User DB file

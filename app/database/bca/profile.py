@@ -1,10 +1,9 @@
 import datetime
-import typing
+import enum
 
 import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
-import app.database.board as board_module
 
 db = db_module.db
 
@@ -24,9 +23,10 @@ class Profile(db_module.DefaultModelMixin, db.Model):
 
     name = db.Column(db.String, nullable=False)  # Profile name shown in card
     description = db.Column(db.String, nullable=True)  # Profile description
-    data = db.Column(db.String, nullable=True)  # Profile data (in json)
+    data = db.Column(db.String, nullable=False)  # Profile data (in json)
     email = db.Column(db.String, nullable=True)  # Main email of Profile
     phone = db.Column(db.String, nullable=True)  # Main phone of Profile
+    address = db.Column(db.String, nullable=True)  # Main address of Profile
     sns = db.Column(db.String, nullable=True)  # Main SNS Account of profile
 
     cards: list['Card'] = None  # Backref of Card
@@ -54,11 +54,11 @@ class Profile(db_module.DefaultModelMixin, db.Model):
     private = db.Column(db.Boolean, default=False, nullable=False)
     modifiable = db.Column(db.Boolean, default=True, nullable=False)
 
-    is_follower_list_public = db.Column(db.Boolean, default=False, nullable=False)
-    is_following_list_public = db.Column(db.Boolean, default=False, nullable=False)
+    is_follow_list_public = db.Column(db.Boolean, default=False, nullable=False)
+    can_annonymous_invite = db.Column(db.Boolean, default=False, nullable=False)
 
-    guestbook: board_module.Board = None  # Placeholder for backref
-    announcement: board_module.Board = None  # Placeholder for backref
+    relation_from: list['ProfileRelation'] = None  # Placeholder for backref
+    relation_to: list['ProfileRelation'] = None  # Placeholder for backref
 
     def to_dict(self):
         result = {
@@ -82,68 +82,40 @@ class Profile(db_module.DefaultModelMixin, db.Model):
         return result
 
 
-class ProfileFollow(db_module.DefaultModelMixin, db.Model):
-    __tablename__ = 'TB_PROFILE_FOLLOW'
+class ProfileRelationStatus(enum.Enum):
+    FOLLOW = 1  # Shows in list, and Opponent can send chat to here
+    HIDE = 2  # Don't show in list, but Opponent can send chat to here
+    BLOCK = 3  # Don't show in list, and Opponent can't send chat to here
+    # DELETE must delete this relation
+    FOLLOW_REQUESTED = 4  # This must be treated as 'not followed'.
+
+
+class ProfileRelation(db_module.DefaultModelMixin, db.Model):
+    __tablename__ = 'TB_PROFILE_RELATION'
     uuid = db.Column(db_module.PrimaryKeyType,
                      db.Sequence('SQ_Profile_UUID'),
                      primary_key=True,
                      nullable=False)
 
-    profile_1_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
-    profile_1: Profile = db.relationship('Profile', primaryjoin=profile_1_id == Profile.uuid)
-    user_1_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
-    user_1: user_module.User = db.relationship('User', primaryjoin=user_1_id == user_module.User.uuid)
+    from_user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    from_user: user_module.User = db.relationship('User', primaryjoin=from_user_id == user_module.User.uuid)
+    from_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    from_profile: Profile = db.relationship('Profile',
+                                            primaryjoin=from_profile_id == Profile.uuid,
+                                            backref=db.backref('relation_from',
+                                                               order_by='ProfileRelation.created_at.desc()'))
 
-    profile_2_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
-    profile_2: Profile = db.relationship('Profile', primaryjoin=profile_2_id == Profile.uuid)
-    user_2_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
-    user_2: user_module.User = db.relationship('User', primaryjoin=user_2_id == user_module.User.uuid)
+    to_user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    to_user: user_module.User = db.relationship('User', primaryjoin=to_user_id == user_module.User.uuid)
+    to_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    to_profile: Profile = db.relationship('Profile',
+                                          primaryjoin=to_profile_id == Profile.uuid,
+                                          backref=db.backref('relation_to',
+                                                             order_by='ProfileRelation.created_at.desc()'))
 
-    when_1_followed_2 = db.Column(db.DateTime, nullable=True)
-    when_2_followed_1 = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.Enum(ProfileRelationStatus), nullable=False, default=ProfileRelationStatus.FOLLOW)
 
     subscripted_cards: list['CardSubscription'] = None
-
-    def get_relation_explain(self) -> dict[tuple[int, int]: bool]:
-        '''{(A, B): True} => A IS following B'''
-        return {
-            (self.profile_1_id, self.profile_2_id): self.when_1_followed_2,
-            (self.profile_2_id, self.profile_1_id): self.when_2_followed_1,
-        }
-
-    def mark_as_follow(self, follow_requester_id: int, db_commit: bool = False):
-        if self.profile_1_id == follow_requester_id:
-            if not self.when_1_followed_2:
-                self.when_1_followed_2 = datetime.datetime.utcnow().replace(tz=utils.UTC)
-        else:
-            if not self.when_2_followed_1:
-                self.when_2_followed_1 = datetime.datetime.utcnow().replace(tz=utils.UTC)
-
-        if db_commit:
-            db.session.commit()
-
-    def mark_as_unfollow(self, unfollow_requester_id: int, db_commit: bool = False):
-        if self.profile_1_id == unfollow_requester_id:
-            if self.when_1_followed_2:
-                self.when_1_followed_2 = None
-        else:
-            if self.when_2_followed_1:
-                self.when_2_followed_1 = None
-
-        if db_commit:
-            db.session.commit()
-
-    def to_dict_perspective_of(self, requester_id: int):
-        is_requester_profile_1 = requester_id == self.profile_1_id
-        result_target_id: int = self.profile_2_id if is_requester_profile_1 else self.profile_1_id
-        result_target_following: typing.Optional[datetime.datetime] = self.when_1_followed_2 if is_requester_profile_1\
-            else self.when_2_followed_1
-        return {result_target_id: result_target_following or False}
-
-    def to_dict_reverse_perspective_of(self, requester_id: int):
-        is_requester_profile_1 = requester_id == self.profile_1_id
-        reverse_requester_id: int = self.profile_2_id if is_requester_profile_1 else self.profile_1_id
-        return self.to_dict_perspective_of(reverse_requester_id)
 
 
 class Card(db_module.DefaultModelMixin, db.Model):
@@ -153,19 +125,20 @@ class Card(db_module.DefaultModelMixin, db.Model):
                      primary_key=True,
                      nullable=False)
 
-    profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
-    profile: Profile = db.relationship('Profile',
-                                       primaryjoin=profile_id == Profile.uuid,
-                                       backref=db.backref('cards',
-                                                          order_by='Card.created_at.desc()'))
     user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
     user: user_module.User = db.relationship('User',
                                              primaryjoin=user_id == user_module.User.uuid,
                                              backref=db.backref('cards',
                                                                 order_by='Card.created_at.desc()'))
+    profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    profile: Profile = db.relationship('Profile',
+                                       primaryjoin=profile_id == Profile.uuid,
+                                       backref=db.backref('cards',
+                                                          order_by='Card.created_at.desc()'))
 
     name = db.Column(db.String, unique=False, nullable=False)  # Card name shown in list or card detail page
     data = db.Column(db.String, unique=False, nullable=False)  # Card data (in json)
+    preview_url = db.Column(db.String, unique=False, nullable=False)  # Card preview image url
 
     subscribed_profile_relations: list['CardSubscription'] = None  # Backref of CardSubscription
 
@@ -197,7 +170,7 @@ class Card(db_module.DefaultModelMixin, db.Model):
             'resource': 'card',
 
             'uuid': self.uuid,
-            'profile_name': self.profile.name,  # TODO: MUST DO QUERY OPTIMIZATION!!!
+            'profile_name': self.profile.name,
             'card_name': self.name,
             'data': self.data,
             'preview_url': self.preview_url,
@@ -207,7 +180,7 @@ class Card(db_module.DefaultModelMixin, db.Model):
             'modified_at': self.modified_at,
         }
 
-        if self.locked_at and profile_id == self.profile_id:
+        if self.locked_at:
             result['locked'] = {
                 'locked_at': self.locked_at.replace(tzinfo=utils.UTC),
                 'locked_by': self.locked_by_id,
@@ -230,28 +203,39 @@ class CardSubscription(db_module.DefaultModelMixin, db.Model):
                      primary_key=True,
                      nullable=False)
 
+    card_user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    card_user: user_module.User = db.relationship('User', primaryjoin=card_user_id == user_module.User.uuid)
+    card_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    card_profile: Profile = db.relationship('Profile', primaryjoin=card_profile_id == Profile.uuid)
     card_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CARD.uuid'), nullable=False)
     card: Card = db.relationship('Card',
                                  primaryjoin=card_id == Card.uuid,
                                  backref=db.backref('subscribed_profile_relations',
                                                     order_by='CardSubscription.created_at.desc()'))
 
-    profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
-    profile: Profile = db.relationship('Profile',
-                                       primaryjoin=profile_id == Profile.uuid,
-                                       backref=db.backref('card_subscribing',
-                                                          order_by='CardSubscription.created_at.desc()'))
-    user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
-    user: user_module.User = db.relationship('User',
-                                             primaryjoin=user_id == user_module.User.uuid,
-                                             backref=db.backref('card_subscriptions',
-                                                                order_by='Card.created_at.desc()'))
+    subscribed_user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    subscribed_user: user_module.User = db.relationship(
+                                            'User',
+                                            primaryjoin=subscribed_user_id == user_module.User.uuid,
+                                            backref=db.backref('card_subscriptions',
+                                                               order_by='Card.created_at.desc()'))
+    subscribed_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    subscribed_profile: Profile = db.relationship(
+                                        'Profile',
+                                        primaryjoin=subscribed_profile_id == Profile.uuid,
+                                        backref=db.backref('card_subscribing',
+                                                           order_by='CardSubscription.created_at.desc()'))
 
-    profile_follow_rel_id = db.Column(db_module.PrimaryKeyType,
-                                      db.ForeignKey('TB_PROFILE_FOLLOW.uuid'),
-                                      nullable=False)
-    profile_follow_rel: ProfileFollow = db.relationship(
-                                    'ProfileFollow',
-                                    primaryjoin=profile_follow_rel_id == ProfileFollow.uuid,
-                                    backref=db.backref('subscripted_cards',  # on Profile class
-                                                       order_by='CardSubscription.created_at.desc()'))
+    # from_profile_rel_id = db.Column(db_module.PrimaryKeyType,
+    #                                 db.ForeignKey('TB_PROFILE_RELATION.uuid'),
+    #                                 nullable=False)
+    # from_profile_rel: ProfileRelation = db.relationship(
+    #                                 'ProfileRelation',
+    #                                 primaryjoin=from_profile_rel_id == ProfileRelation.uuid)
+
+    # to_profile_rel_id = db.Column(db_module.PrimaryKeyType,
+    #                               db.ForeignKey('TB_PROFILE_RELATION.uuid'),
+    #                               nullable=False)
+    # to_profile_rel: ProfileRelation = db.relationship(
+    #                                 'ProfileRelation',
+    #                                 primaryjoin=from_profile_rel_id == ProfileRelation.uuid)

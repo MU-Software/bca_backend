@@ -7,7 +7,8 @@ import app.database as db_module
 import app.database.user as user_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.sqs_action.action_definition as sqs_action_def
+# import app.plugin.bca.sqs_action.action_definition as sqs_action_def
+import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -17,9 +18,7 @@ redis_db = db_module.redis_db
 
 
 class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @api_class.RequestHeader(
-        required_fields={'X-Csrf-Token': {'type': 'string', }, },
-        auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
     def get(self, req_header: dict, access_token: jwt_module.AccessToken):
         '''
         description: Get user's all profiles
@@ -36,7 +35,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .all()
             if not target_profiles:
                 return ResourceResponseCase.resource_not_found.create_response(
-                            message='You don\'t have any profiles yet')
+                            message='만드신 프로필이 없습니다.')
 
             return ResourceResponseCase.multiple_resources_found.create_response(
                         data={'profiles': [profile.to_dict() for profile in target_profiles], })
@@ -44,17 +43,12 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
         except Exception:
             CommonResponseCase.server_error.create_response()
 
-    @api_class.RequestHeader(
-        required_fields={'X-Csrf-Token': {'type': 'string', }, },
-        auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
     @api_class.RequestBody(
         required_fields={
             'name': {'type': 'string', },
             'data': {'type': 'string', }, },
         optional_fields={
-            'email': {'type': 'string', },
-            'phone': {'type': 'string', },
-            'sns': {'type': 'string', },
             'description': {'type': 'string', },
             'private': {'type': 'boolean', }, })
     def post(self, req_header: dict, access_token: jwt_module.AccessToken, req_body: dict):
@@ -79,16 +73,33 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_profile.user_id = target_user.uuid
             new_profile.name = req_body['name']
             new_profile.data = req_body['data']
-            new_profile.email = req_body.get('email', None)
-            new_profile.phone = req_body.get('phone', None)
-            new_profile.sns = req_body.get('sns', None)
             new_profile.description = req_body.get('description', None)
-            new_profile.private = bool(req_body.get('private', False))
+            new_profile.private = bool(req_body.get('private', True))
 
+            # We must handle 'data' field specially. Parse data and modify proper columns
+            # We need to get first item in columns
+            profile_data: dict[str, dict[str, str]] = json.loads(req_body['data'])
+            listize_target_fields = ['email', 'phone', 'sns', 'address']
+            for field in listize_target_fields:
+                profile_data[field] = [{'key': k, **v} for k, v in profile_data.pop(field, {}).items()]
+                if not profile_data[field]:
+                    del(profile_data[field])
+                    continue
+
+                field_first = profile_data.get(field, [None, ])[0]
+                profile_data[field] = json.dumps(field_first) if field_first else None
+
+            # And set proper values on orm object
+            editable_columns = ('email', 'phone', 'sns', 'address')
+            filtered_data = {col: data for col, data in profile_data.items() if col in editable_columns}
+            for column, data in filtered_data.items():
+                setattr(new_profile, column, data)
+
+            # Add to db
             db.session.add(new_profile)
             db.session.commit()
 
-            # Add profile id on user roles
+            # Add profile id on user roles. This must be done after create opetaion to get UUID of profile
             current_role: list = json.loads(target_user.role)
             current_role.append({'type': 'profile', 'id': new_profile.uuid})
             target_user.role = json.dumps(current_role)
@@ -107,9 +118,13 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 redis_key = db_module.RedisKeyType.TOKEN_REVOKE.as_redis_key(target.jti)
                 redis_db.set(redis_key, 'revoked', datetime.timedelta(weeks=2))
 
-            # Apply new card data to user db
-            # This must be done after commit to get commit_id and modified_at columns' data
-            sqs_action_def.profile_created(new_profile)
+            # Apply changeset on user db
+            sqs_action.queue_userdb_journal_taskmsg(db)
+            db.session.commit()
+
+            # # Apply new card data to user db
+            # # This must be done after commit to get commit_id and modified_at columns' data
+            # sqs_action_def.profile_created(new_profile)
 
             return ResourceResponseCase.resource_created.create_response(
                 header=(('ETag', new_profile.commit_id, ), ),

@@ -8,7 +8,8 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.sqs_action.action_definition as sqs_action_def
+# import app.plugin.bca.sqs_action.action_definition as sqs_action_def
+import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 
@@ -16,10 +17,7 @@ db = db_module.db
 
 
 class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @api_class.RequestHeader(
-        required_fields={},
-        optional_fields={'X-Csrf-Token': {'type': 'string', }, },
-        auth={api_class.AuthType.Bearer: False, })
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: False, })
     def get(self, card_id: int, req_header: dict, access_token: typing.Optional[jwt_module.AccessToken] = None):
         '''
         description: Returns target card data
@@ -34,13 +32,15 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(profile_module.Card.locked_at.is_(None))\
                 .filter(profile_module.Card.uuid == card_id).first()
             if not target_card:
-                return ResourceResponseCase.resource_not_found.create_response()
+                return ResourceResponseCase.resource_not_found.create_response(
+                    message='명함을 찾을 수 없습니다.')
 
             # if target_card.private == False, then response card data
             if target_card.private or target_card.deleted_at is not None:
                 # if card is private, then only admin and card creator, card subscriber can see this.
                 if not access_token:
-                    return ResourceResponseCase.resource_forbidden.create_response()
+                    return ResourceResponseCase.resource_forbidden.create_response(
+                        message='명함을 보려면 로그인이 필요합니다.')
 
                 elif 'admin' in access_token.role:
                     return ResourceResponseCase.resource_found.create_response(
@@ -66,7 +66,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                             header=(('ETag', target_card.commit_id, ), ),
                             data={'card': target_card.to_dict()}, )
 
-                return ResourceResponseCase.resource_forbidden.create_response()
+                return ResourceResponseCase.resource_forbidden.create_response(
+                        message='명함을 볼 권한이 없습니다.')
 
             return ResourceResponseCase.resource_found.create_response(
                 header=(('ETag', target_card.commit_id, ), ),
@@ -77,11 +78,9 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
     @api_class.RequestHeader(
         required_fields={
-            'X-Csrf-Token': {'type': 'string', },
             'If-Match': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
     @api_class.RequestBody(
-        required_fields={},
         optional_fields={
             'data': {'type': 'string', },
             'private': {'type': 'boolean', }, })
@@ -102,32 +101,39 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(profile_module.Card.user_id == access_token.user)\
                 .filter(profile_module.Card.uuid == card_id).first()
             if not target_card:
-                return ResourceResponseCase.resource_not_found.create_response()
+                return ResourceResponseCase.resource_not_found.create_response(
+                    message='명함을 찾을 수 없습니다.')
 
             # Card can be deleted only by created user or admin
             if target_card.profile_id not in access_token.role:
-                return ResourceResponseCase.resource_forbidden.create_response()
+                return ResourceResponseCase.resource_forbidden.create_response(
+                    message='명함 수정은 명함 제작자만이 할 수 있습니다.')
 
             # E-tag of request must be matched
             if target_card.commit_id != req_header.get('If-Match', None):
-                return ResourceResponseCase.resource_prediction_failed.create_response()
+                return ResourceResponseCase.resource_prediction_failed.create_response(
+                    message='명함이 다른 기기에서 수정된 것 같습니다.\n동기화를 해 주세요.')
 
             # Modify card data
             editable_columns = ('data', 'private')
-            filtered_data = {col: data for col, data in editable_columns if col in req_body.items()}
+            filtered_data = {col: data for col, data in req_body.items() if col in editable_columns}
             if not filtered_data:
                 return CommonResponseCase.body_empty.create_response()
             for column, data in filtered_data.items():
                 setattr(target_card, column, data)
 
-            # Calculate changeset of row, commit, and get commit_id
-            changeset: dict[str, list] = utils.get_model_changes(target_card)
-            db_module.db.session.commit()
-            changeset['commit_id'] = [None, target_card.commit_id]
-            changeset['modified_at'] = [None, target_card.modified_at]
+            # Apply changeset on user db
+            sqs_action.queue_userdb_journal_taskmsg(db)
+            db.session.commit()
 
-            # Now, create and apply user db task
-            sqs_action_def.card_modified(target_card, changeset)
+            # # Calculate changeset of row, commit, and get commit_id
+            # changeset: dict[str, list] = utils.get_model_changes(target_card)
+            # db_module.db.session.commit()
+            # changeset['commit_id'] = [None, target_card.commit_id]
+            # changeset['modified_at'] = [None, target_card.modified_at]
+
+            # # Now, create and apply user db task
+            # sqs_action_def.card_modified(target_card, changeset)
 
             return ResourceResponseCase.resource_modified.create_response()
         except Exception:
@@ -135,7 +141,6 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
     @api_class.RequestHeader(
         required_fields={
-            'X-Csrf-Token': {'type': 'string', },
             'If-Match': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
     def delete(self, card_id: int, req_header: dict, access_token: jwt_module.AccessToken):
@@ -154,30 +159,37 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(profile_module.Card.deleted_at.is_(None))\
                 .filter(profile_module.Card.uuid == card_id).first()
             if not target_card:
-                return ResourceResponseCase.resource_not_found.create_response()
+                return ResourceResponseCase.resource_not_found.create_response(
+                    message='명함을 찾을 수 없습니다.')
 
             # Card can be deleted only by created user or admin
             if 'admin' not in access_token.role and target_card.profile_id not in access_token.role:
-                return ResourceResponseCase.resource_forbidden.create_response()
+                return ResourceResponseCase.resource_forbidden.create_response(
+                    message='명함 삭제는 관리자나 명함 제작자만이 할 수 있습니다.')
 
             # E-tag of request must be matched
             if target_card.commit_id != req_header.get('If-Match', None):
-                return ResourceResponseCase.resource_prediction_failed.create_response()
+                return ResourceResponseCase.resource_prediction_failed.create_response(
+                    message='명함이 다른 기기에서 수정된 것 같습니다.\n동기화를 해 주세요.')
 
             target_card.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
             target_card.deleted_by_id = access_token.user
             target_card.why_deleted = 'DELETE_REQUESTED'
 
-            # Calculate changeset of row, commit, and get commit_id
-            # Actually, Card deletion doesn't delete card.
-            # Instead, this marks card as deleted, so this is Card Modification.
-            changeset: dict[str, list] = utils.get_model_changes(target_card)
-            db_module.db.session.commit()
-            changeset['commit_id'] = [None, target_card.commit_id]
-            changeset['modified_at'] = [None, target_card.modified_at]
+            # Apply changeset on user db
+            sqs_action.queue_userdb_journal_taskmsg(db)
+            db.session.commit()
 
-            # Now, create and apply user db task
-            sqs_action_def.card_modified(target_card, changeset)
+            # # Calculate changeset of row, commit, and get commit_id
+            # # Actually, Card deletion doesn't delete card.
+            # # Instead, this marks card as deleted, so this is Card Modification.
+            # changeset: dict[str, list] = utils.get_model_changes(target_card)
+            # db.session.commit()
+            # changeset['commit_id'] = [None, target_card.commit_id]
+            # changeset['modified_at'] = [None, target_card.modified_at]
+
+            # # Now, create and apply user db task
+            # sqs_action_def.card_modified(target_card, changeset)
 
             return ResourceResponseCase.resource_deleted.create_response()
         except Exception:

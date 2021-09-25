@@ -17,14 +17,14 @@ class CardResponseModel(api_class.ResponseDataModel):
     modified: bool = False
 
 
-class CardResponseCase(api_class.ResponseCaseCollector):
+class CardSubscriptionResponseCase(api_class.ResponseCaseCollector):
     card_subscribed = api_class.Response(
         description='Target profile successfully subscribes a card',
         code=201, success=True,
         public_sub_code='card.subscribed')
     card_already_subscribed = api_class.Response(
         description='Target profile already subscribed a card',
-        code=201, success=True,
+        code=200, success=True,
         public_sub_code='card.already_subscribed')
     card_unsubscribed = api_class.Response(
         description='Target profile successfully unsubscribes a card',

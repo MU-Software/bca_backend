@@ -48,14 +48,22 @@ class Profile:
         'sqlite_autoincrement': True,
     }
 
+    column_names = [
+        'uuid',
+        'name', 'description', 'data',
+        'email', 'phone', 'sns', 'address', 'private',
+        'commit_id', 'created_at', 'modified_at', 'deleted_at', 'why_deleted',
+    ]
+
     uuid = sql.Column(sql.Integer, primary_key=True, nullable=False)
 
     name = sql.Column(sql.TEXT, nullable=False)  # Profile name shown in list or card
-    email = sql.Column(sql.TEXT, nullable=True)  # Email of Profile
-    phone = sql.Column(sql.TEXT, nullable=True)  # Phone of Profile
-    sns = sql.Column(sql.TEXT, nullable=True)  # SNS Account of profile (in json)
     description = sql.Column(sql.TEXT, nullable=True)  # Profile description
-    data = sql.Column(sql.TEXT, nullable=False)  # Profile additional data (in json)
+    data = sql.Column(sql.TEXT, nullable=False)  # Profile data (in json)
+    email = sql.Column(sql.TEXT, nullable=True)  # Main email of Profile
+    phone = sql.Column(sql.TEXT, nullable=True)  # Main phone of Profile
+    sns = sql.Column(sql.TEXT, nullable=True)  # Main SNS Account of profile
+    address = sql.Column(sql.TEXT, nullable=True)  # Main address of profile
 
     commit_id = sql.Column(sql.TEXT, nullable=False)
     created_at = sql.Column(UserDBDateTime, nullable=False)
@@ -63,10 +71,36 @@ class Profile:
     deleted_at = sql.Column(UserDBDateTime, nullable=True)
     why_deleted = sql.Column(sql.TEXT, nullable=True)
 
-    guestbook = sql.Column(sql.Integer, nullable=True)
-    announcement = sql.Column(sql.Integer, nullable=True)
-
     private = sql.Column(UserDBBoolean, nullable=False, default=0)
+
+
+class ProfileRelation:
+    __tablename__ = 'TB_PROFILE_RELATION'
+    __table_args__ = {
+        'sqlite_autoincrement': True,
+    }
+
+    column_names = [
+        'uuid',
+        'from_profile_id', 'to_profile_id', 'status',
+        'commit_id', 'created_at', 'modified_at',
+    ]
+
+    uuid = sql.Column(sql.Integer, primary_key=True, nullable=False)
+
+    commit_id = sql.Column(sql.TEXT, nullable=False)
+    created_at = sql.Column(UserDBDateTime, nullable=False)
+    modified_at = sql.Column(UserDBDateTime, nullable=False)
+
+    status = sql.Column(sql.Integer, nullable=False, default=1)
+
+    @sqldec.declared_attr
+    def from_profile_id(cls):
+        return sql.Column(sql.Integer, sql.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+
+    @sqldec.declared_attr
+    def to_profile_id(cls):
+        return sql.Column(sql.Integer, sql.ForeignKey('TB_PROFILE.uuid'), nullable=False)
 
 
 class Card:
@@ -74,6 +108,12 @@ class Card:
     __table_args__ = {
         'sqlite_autoincrement': True,
     }
+
+    column_names = [
+        'uuid',
+        'name', 'data', 'preview_url', 'private',
+        'commit_id', 'created_at', 'modified_at', 'deleted_at', 'why_deleted',
+    ]
 
     uuid = sql.Column(sql.Integer, primary_key=True, nullable=False)
 
@@ -100,15 +140,26 @@ class CardSubscription:
         'sqlite_autoincrement': True,
     }
 
+    column_names = [
+        'uuid',
+        'card_profile_id', 'card_id', 'subscribed_profile_id',
+        'commit_id', 'created_at', 'modified_at',
+    ]
+
     uuid = sql.Column(sql.Integer, primary_key=True, nullable=False)
 
     commit_id = sql.Column(sql.TEXT, nullable=False)
     created_at = sql.Column(UserDBDateTime, nullable=False)
+    modified_at = sql.Column(UserDBDateTime, nullable=False)
 
     @sqldec.declared_attr
-    def profile_id(cls):
+    def card_profile_id(cls):
         return sql.Column(sql.Integer, sql.ForeignKey('TB_PROFILE.uuid'), nullable=False)
 
     @sqldec.declared_attr
     def card_id(cls):
         return sql.Column(sql.Integer, sql.ForeignKey('TB_CARD.uuid'), nullable=False)
+
+    @sqldec.declared_attr
+    def subscribed_profile_id(cls):
+        return sql.Column(sql.Integer, sql.ForeignKey('TB_PROFILE.uuid'), nullable=False)

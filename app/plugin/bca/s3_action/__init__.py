@@ -12,8 +12,8 @@ import typing
 
 import app.common.utils as utils
 import app.database as db_module
-import app.database.profile as profile_module
-import app.bca.database.user_db_table as bca_user_db_table
+import app.database.bca.profile as profile_module
+import app.plugin.bca.database.user_db_table as bca_user_db_table
 
 
 def create_user_db(user_id: int,
@@ -24,7 +24,7 @@ def create_user_db(user_id: int,
         if delete_if_available:
             delete_user_db(user_id)
 
-        # Create temporary file and connection
+        # Create temporary file and connection. This only works on linux, because of NamedTemporaryFile.
         temp_user_db_file = tempfile.NamedTemporaryFile('w+b', delete=True)
         temp_user_db_sqlite_conn = sqlite3.connect(temp_user_db_file.name)
         temp_user_db_engine = sql.create_engine('sqlite://', creator=lambda: temp_user_db_sqlite_conn)
@@ -40,6 +40,10 @@ def create_user_db(user_id: int,
             'ProfileTable',
             (temp_user_db_base, bca_user_db_table.Profile),
             {})
+        ProfileRelationTable = type(
+            'ProfileRelationTable',
+            (temp_user_db_base, bca_user_db_table.ProfileRelation),
+            {})
         CardTable = type(
             'CardTable',
             (temp_user_db_base, bca_user_db_table.Card),
@@ -50,91 +54,82 @@ def create_user_db(user_id: int,
             {})
 
         ProfileTable.__table__.create(temp_user_db_engine)
+        ProfileRelationTable.__table__.create(temp_user_db_engine)
         CardTable.__table__.create(temp_user_db_engine)
         CardSubscriptionTable.__table__.create(temp_user_db_engine)
 
         if insert_all_data_from_global_db:
             # Insert data to user db from global db
             # Find user's profiles, and find all card subscriptions using user's profiles.
+            # Hopefully, we unnormalized columns, so we can query this easily... rignt?
 
-            # List of profile's ID that owned by user
-            user_profiles_query = db_module.db.session.query(profile_module.Profile.uuid)\
-                .filter(profile_module.Profile.locked_at == None)\
-                .filter(profile_module.Profile.deleted_at == None)\
+            db = db_module.db
+
+            # All profile's ID that created by user, following profiles, and subscribed cards' profiles
+            user_profiles_query = db.session.query(profile_module.Profile.uuid)\
+                .filter(profile_module.Profile.locked_at.is_(None))\
+                .filter(profile_module.Profile.deleted_at.is_(None))\
                 .filter(profile_module.Profile.user_id == user_id)\
-                .subquery()  # noqa
+                .subquery()
 
-            # All relations between profiles (owned by user) and cards
-            user_card_relations_query = profile_module.CardSubscription.query\
-                .filter(profile_module.CardSubscription.profile_id.in_(user_profiles_query))
+            following_profiles_query = db.session.query(profile_module.ProfileRelation.to_profile_id)\
+                .filter(profile_module.ProfileRelation.from_profile_id == user_id)\
+                .filter(profile_module.ProfileRelation.to_profile.locked_at.is_(None))\
+                .distinct().subquery()
 
-            # All card id that needs to be added to user DB
-            card_ids_that_needs_to_be_added_query = user_card_relations_query\
-                .with_entities(profile_module.CardSubscription.card_id)
+            subscribed_cards_profiles_query = db.session.query(profile_module.CardSubscription.card_profile_id)\
+                .filter(profile_module.CardSubscription.subscribed_user_id == user_id)\
+                .filter(profile_module.CardSubscription.card.locked_at.is_(None))\
+                .distinct().subquery()
 
-            user_subscripting_cards_query = profile_module.Card.query\
-                .filter(
-                    (profile_module.Card.uuid.in_(card_ids_that_needs_to_be_added_query))
-                    | (profile_module.Card.profile_id.in_(user_profiles_query)))\
-                .filter(profile_module.Card.locked_at == None)  # noqa
+            # All profiles to be loaded
+            load_target_profiles: list[profile_module.Profile] = db.session.query(profile_module.Profile)\
+                .filter(profile_module.Profile.locked_at.is_(None))\
+                .filter(sql.or_(
+                    profile_module.Profile.uuid.in_(user_profiles_query),
+                    profile_module.Profile.uuid.in_(following_profiles_query),
+                    profile_module.Profile.uuid.in_(subscribed_cards_profiles_query),
+                )).distinct(profile_module.Profile.uuid).all()
 
-            # All profile id that needs to be added to user DB
-            profile_ids_that_needs_to_be_added_query = profile_module.Card.query\
-                .filter(profile_module.Card.uuid.in_(card_ids_that_needs_to_be_added_query))\
-                .with_entities(profile_module.Card.profile_id)
+            # All profile relations to be loaded
+            load_target_profile_relations: list[profile_module.ProfileRelation] = db.session.query(
+                profile_module.ProfileRelation)\
+                .filter(profile_module.ProfileRelation.from_profile_id == user_id)\
+                .filter(profile_module.ProfileRelation.to_profile.locked_at.is_(None))\
+                .distinct(profile_module.ProfileRelation.uuid).all()
 
-            user_following_profiles_query = profile_module.Profile.query\
-                .filter(
-                    (profile_module.Profile.uuid.in_(profile_ids_that_needs_to_be_added_query))
-                    | (profile_module.Profile.user_id == user_id))\
-                .filter(profile_module.Profile.locked_at == None)  # noqa
+            # All card subscriptions to be loaded
+            card_subscriptions_query = db.session.query(profile_module.CardSubscription)\
+                .filter(profile_module.CardSubscription.subscribed_user_id == user_id)\
+                .filter(profile_module.CardSubscription.card.locked_at.is_(None))\
+                .distinct(profile_module.CardSubscription.uuid)
 
-            user_card_relations: list[profile_module.CardSubscription] = user_card_relations_query.all()
-            user_subscripting_cards: list[profile_module.Card] = user_subscripting_cards_query\
+            load_target_card_subscriptions: list[profile_module.CardSubscription] = card_subscriptions_query.all()
+
+            # All cards to be loaded
+            load_target_cards: list[profile_module.Card] = db.session.query(profile_module.Card)\
+                .filter(profile_module.Card.locked_at.is_(None))\
+                .filter(sql.or_(
+                    profile_module.Card.user_id == user_id,  # User's cards
+                    profile_module.Card.uuid.in_(  # Subscribed cards
+                        card_subscriptions_query.with_entities(profile_module.CardSubscription.uuid)),
+                ))\
                 .distinct(profile_module.Card.uuid).all()
-            user_following_profiles: list[profile_module.Profile] = user_following_profiles_query\
-                .distinct(profile_module.Profile.uuid).all()
 
-            for profile in user_following_profiles:
-                new_profile = ProfileTable()
+            load_target_table_map: list[tuple[list, typing.Type]] = [
+                (load_target_profiles, ProfileTable),
+                (load_target_profile_relations, ProfileRelationTable),
+                (load_target_cards, CardTable),
+                (load_target_card_subscriptions, CardSubscriptionTable),
+            ]
+            for load_target_data_list, TableClass in load_target_table_map:
+                for load_target_data in load_target_data_list:
+                    new_row = TableClass()
 
-                target_columns = (
-                    'uuid', 'description', 'data',
-                    'name', 'email', 'phone', 'sns',
-                    'commit_id', 'created_at', 'modified_at',
-                    'deleted_at', 'why_deleted',
-                    'guestbook', 'announcement', 'private')
+                    for column in TableClass.column_names:
+                        setattr(new_row, column, getattr(load_target_data, column))
 
-                for column in target_columns:
-                    setattr(new_profile, column, getattr(profile, column))
-
-                temp_user_db_session.add(new_profile)
-
-            for card in user_subscripting_cards:
-                new_card = CardTable()
-
-                target_columns = (
-                    'uuid', 'profile_id',
-                    'name', 'data', 'preview_url',
-                    'commit_id', 'created_at', 'modified_at',
-                    'deleted_at', 'why_deleted')
-
-                for column in target_columns:
-                    setattr(new_card, column, getattr(card, column))
-
-                temp_user_db_session.add(new_card)
-
-            for card_relation in user_card_relations:
-                new_card_subscription = CardSubscriptionTable()
-
-                target_columns = (
-                    'uuid', 'profile_id', 'card_id',
-                    'commit_id', 'created_at')
-
-                for column in target_columns:
-                    setattr(new_card_subscription, column, getattr(card_relation, column))
-
-                temp_user_db_session.add(new_card_subscription)
+                temp_user_db_session.add(new_row)
 
         temp_user_db_session.commit()
         temp_user_db_engine.dispose()  # Disconnect all connections (for safety)

@@ -55,9 +55,9 @@ def profile_modified(
 
     # 1. Querying this profile's cards
     subquery_cards_of_profile = db.session.query(profile_module.Card.uuid)\
-        .filter(profile_module.Card.locked_at == None)\
+        .filter(profile_module.Card.locked_at.is_(None))\
         .filter(profile_module.Card.profile_id == profile_row.uuid)\
-        .subquery()  # noqa
+        .subquery()
 
     # 2. Find all subscribers of cards that created by profile_id
     subquery_subscribing_profiles_of_cards_of_profile = db.session.query(profile_module.CardSubscription.profile_id)\
@@ -66,9 +66,9 @@ def profile_modified(
 
     # 3. Get distinct user uuid of those subscribers
     query_user_uuid_of_followers_of_modified_profile = db.session.query(profile_module.Profile.user_id)\
-        .filter(profile_module.Profile.locked_at == None)\
+        .filter(profile_module.Profile.locked_at.is_(None))\
         .filter(profile_module.Profile.uuid.in_(subquery_subscribing_profiles_of_cards_of_profile))\
-        .distinct().order_by(profile_module.Profile.user_id)  # noqa
+        .distinct().order_by(profile_module.Profile.user_id)
 
     target_list_of_user_uuid: list[int] = [z[0] for z in query_user_uuid_of_followers_of_modified_profile.all()]
     target_list_of_user_uuid = target_list_of_user_uuid or list()
@@ -115,9 +115,9 @@ def card_modified(
         .subquery()
     # 2. Get all user uuid of those subscribers
     query_user_uuid_of_subscribers = db.session.query(profile_module.Profile.user_id)\
-        .filter(profile_module.Profile.locked_at == None)\
+        .filter(profile_module.Profile.locked_at.is_(None))\
         .filter(profile_module.Profile.uuid.in_(subquery_subscribing_profiles_of_cards))\
-        .distinct().order_by(profile_module.Profile.user_id)  # noqa
+        .distinct().order_by(profile_module.Profile.user_id)
 
     target_list_of_user_uuid: list[int] = [z[0] for z in query_user_uuid_of_subscribers.all()]
     target_list_of_user_uuid = target_list_of_user_uuid or list()

@@ -1,28 +1,17 @@
 import typing
-import sqlalchemy as sql
-import sqlalchemy.ext.declarative as sqldec
-import sqlalchemy.util as sqlutil
 
 import app.database as db_module
-import app.database.profile as profile_module
-import app.bca.database.user_db_table as user_db_table
-import app.bca.sqs_action as sqs_action
+import app.database.bca.profile as profile_module
+import app.plugin.bca.database.user_db_table as user_db_table
+import app.plugin.bca.sqs_action as sqs_action
 
 db = db_module.db
 
 # User DB definition, add declared_attr columns too
-UserDB_ProfileTable_Columns = [col_name for col_name, col in user_db_table.Profile.__dict__.items()
-                               if isinstance(col, sql.Column)]
-UserDB_ProfileTable_Columns += [col_name for col_name, col in user_db_table.Profile.__dict__.items()
-                                if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
-UserDB_CardTable_Columns = [col_name for col_name, col in user_db_table.Card.__dict__.items()
-                            if isinstance(col, sql.Column)]
-UserDB_CardTable_Columns += [col_name for col_name, col in user_db_table.Card.__dict__.items()
-                             if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
-UserDB_CardSubscriptionTable_Columns = [col_name for col_name, col in user_db_table.CardSubscription.__dict__.items()
-                                        if isinstance(col, sql.Column)]
-UserDB_CardSubscriptionTable_Columns += [col_name for col_name, col in user_db_table.CardSubscription.__dict__.items()
-                                         if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
+UserDB_ProfileTable_Columns = user_db_table.Profile.column_names
+UserDB_ProfileRelationTable_Columns = user_db_table.ProfileRelation.column_names
+UserDB_CardTable_Columns = user_db_table.Card.column_names
+UserDB_CardSubscriptionTable_Columns = user_db_table.CardSubscription.column_names
 
 
 def profile_created(profile_row: profile_module.Profile):

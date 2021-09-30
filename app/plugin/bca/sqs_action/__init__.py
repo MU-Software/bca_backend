@@ -4,31 +4,69 @@ import enum
 import flask
 import flask_sqlalchemy as fsql
 import json
-import sqlalchemy as sql
-import sqlalchemy.ext.declarative as sqldec
-import sqlalchemy.util as sqlutil
 import typing
 
 import app.common.utils as utils
-import app.bca.database.user_db_table as user_db_table
-import app.database.profile as profile_module
+import app.plugin.bca.database.user_db_table as user_db_table
+import app.database as db_module
+import app.database.bca.profile as profile_module
+
+db = db_module.db
+
+# Target tables list
+TARGET_TABLE_MAP = {
+    profile_module.Profile: {
+        'user_db_table_class': user_db_table.Profile,
+        'db_owner_id_calc': {
+            'c': lambda row: [row.user_id, ],
+            'u': lambda row: [*db.session.query(profile_module.ProfileRelation.from_user_id).distinct()
+                              .filter(profile_module.ProfileRelation.to_user_id == row.user_id).all(), row.user_id],
+            'd': lambda row: [*db.session.query(profile_module.ProfileRelation.from_user_id).distinct()
+                              .filter(profile_module.ProfileRelation.to_user_id == row.user_id).all(), row.user_id],
+        }
+    },
+    profile_module.ProfileRelation: {
+        'user_db_table_class': user_db_table.ProfileRelation,
+        'db_owner_id_calc': {
+            'c': lambda row: [row.user_id, ],
+            'u': lambda row: [row.user_id, ],
+            'd': lambda row: [row.user_id, ],
+        }
+    },
+    profile_module.Card: {
+        'user_db_table_class': user_db_table.Card,
+        'db_owner_id_calc': {
+            'c': lambda row: [row.user_id, ],
+            'u': lambda row: [db.session.query(profile_module.CardSubscription.subscribed_user_id).distinct()
+                              .filter(profile_module.CardSubscription.card_user_id == row.user_id).all(), row.user_id],
+            'd': lambda row: [db.session.query(profile_module.CardSubscription.subscribed_user_id).distinct()
+                              .filter(profile_module.CardSubscription.card_user_id == row.user_id).all(), row.user_id],
+        }
+    },
+    profile_module.CardSubscription: {
+        'user_db_table_class': user_db_table.CardSubscription,
+        'db_owner_id_calc': {
+            'c': lambda row: [row.user_id, ],
+            'u': lambda row: [row.user_id, ],
+            'd': lambda row: [row.user_id, ],
+        }
+    }
+}
 
 
-class UserDBModifyActionCase(enum.Enum):
+class UserDBModifyActionCase(utils.EnumAutoName):
     add = enum.auto()
     modify = enum.auto()
     delete = enum.auto()
 
 
-@dataclasses.dataclass
 class UserDBModifyData:
     tablename: str
     uuid: int
-    action: UserDBModifyActionCase
+    action: str
     column_data_map: dict[str, typing.Any] = dataclasses.field(default_factory=lambda: {})
 
 
-@dataclasses.dataclass
 class UserDBModifyTaskMessage:
     db_owner_id: int
     changes: list[UserDBModifyData]
@@ -41,6 +79,7 @@ class UserDBModifyTaskMessage:
 
         changelog = {
             'TB_PROFILE': {},
+            'TB_PROFILE_SUBSCRIPTION': {},
             'TB_CARD': {},
             'TB_CARD_SUBSCRIPTION': {},
         }
@@ -64,114 +103,83 @@ class UserDBModifyTaskMessage:
             MessageGroupId='userdbmod1')
 
 
-def create_changelog_from_session(db: fsql.SQLAlchemy) -> list[UserDBModifyData]:
-    target_tables = {
-        'TB_PROFILE': user_db_table.Profile,
-        'TB_CARD': user_db_table.Card,
-        'TB_CARD_SUBSCRIPTION': user_db_table.CardSubscription
-    }
-    changes: list[UserDBModifyData] = list()
+def get_journal_from_session(db: fsql.SQLAlchemy) -> dict[int, UserDBModifyTaskMessage]:
+    modify_journal: dict[int, UserDBModifyTaskMessage] = dict()
 
-    for row_created in db.session.new:
-        if type(row_created).__tablename__ not in target_tables:
+    for row in db.session.new:
+        if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
-        user_db_target_table = target_tables[type(row_created).__tablename__]
+        UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
+        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['c']()
 
-        user_profile_columns = [col_name for col_name, col in user_db_table.Profile.__dict__.items()
-                                if isinstance(col, sql.Column)]
-        # Need to add declared_attr columns
-        user_profile_columns += [col_name for col_name, col in user_db_table.Profile.__dict__.items()
-                                 if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
+        db_mod_data = UserDBModifyData()
+        db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
+        db_mod_data.uuid = getattr(row, 'uuid')
+        db_mod_data.action = UserDBModifyActionCase.add.value()
+        db_mod_data.column_data_map = dict()
 
-        user_card_columns = [col_name for col_name, col in user_db_table.Card.__dict__.items()
-                             if isinstance(col, sql.Column)]
-        # Need to add declared_attr columns
-        user_card_columns += [col_name for col_name, col in user_db_table.Card.__dict__.items()
-                              if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
+        for column in UserDBTableClass.column_names:
+            db_mod_data.column_data_map[column] = getattr(row, column)
 
-        user_cardsubsribe_columns = [col_name for col_name, col in user_db_table.CardSubscription.__dict__.items()
-                                     if isinstance(col, sql.Column)]
-        # Need to add declared_attr columns
-        user_cardsubsribe_columns += [col_name for col_name, col in user_db_table.CardSubscription.__dict__.items()
-                                      if isinstance(col, (sqldec.declared_attr, sqlutil.classproperty))]
+        for user_id in db_owner_id_target_list:
+            if user_id not in modify_journal:
+                modify_journal[user_id] = UserDBModifyTaskMessage()
+                modify_journal[user_id].db_owner_id = user_id
+                modify_journal[user_id].changes = list()
 
-        if type(row_created).__tablename__ == 'TB_CARD_SUBSCRIBED':
-            row_created: profile_module.CardSubscription = row_created
-            # TODO: Add Card and Profile data too
-            target_card: profile_module.Card = profile_module.Card.query\
-                .filter(profile_module.Card.uuid == row_created.card_id)\
-                .first()
-            target_profile: profile_module.Profile = profile_module.Profile.query\
-                .filter(profile_module.Profile.uuid == target_card.profile_id)\
-                .first()
-            target_profile_data = {name: getattr(target_profile, name) for name in user_profile_columns}
-            target_card_data = {name: getattr(target_card, name) for name in user_card_columns}
-            target_cardsubscribe_data = {name: getattr(row_created, name) for name in user_cardsubsribe_columns}
-            changes += [
-                UserDBModifyData(
-                    tablename=user_db_table.Profile.__tablename__,
-                    uuid=target_profile.uuid,
-                    action=UserDBModifyActionCase.add,
-                    column_data_map=target_profile_data),
-                UserDBModifyData(
-                    tablename=user_db_table.Card.__tablename__,
-                    uuid=target_card.uuid,
-                    action=UserDBModifyActionCase.add,
-                    column_data_map=target_card_data),
-                UserDBModifyData(
-                    tablename=user_db_table.CardSubscription.__tablename__,
-                    uuid=row_created.uuid,
-                    action=UserDBModifyActionCase.add,
-                    column_data_map=target_cardsubscribe_data)]
-        else:
-            # Get target user db column lists to restrict columns
-            target_columns = [col_name for col_name, col in user_db_target_table.__dict__.items()
-                              if isinstance(col, sql.Column)]
-            target_data = {name: getattr(row_created, name) for name in target_columns}
+            modify_journal[user_id].changes.append(db_mod_data)
 
-            changes.append(
-                UserDBModifyData(
-                    tablename=user_db_target_table.__tablename__,
-                    uuid=row_created.uuid,
-                    action=UserDBModifyActionCase.add,
-                    column_data_map=target_data))
-
-    for row_modified in db.session.dirty:
-        if type(row_modified).__tablename__ not in target_tables:
+    for row in db.session.dirty:
+        if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
-        user_db_target_table = target_tables[type(row_modified).__tablename__]
-        # Get target user db column lists to restrict columns
-        target_columns = [col_name for col_name, col in user_db_target_table.__dict__.items()
-                          if isinstance(col, sql.Column)]
+        UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
+        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['u']()
 
-        # Instances can be considered dirty although there is no changes,
-        # so we need to check it.
-        if row_modified.is_modified():
-            # Get changes and log it to changelog
-            modified_changelog: dict[str, list[typing.Any]] = utils.get_model_changes(row_modified)
-            modified_changelog: dict[str, typing.Any] = {k: v[1] for k, v in modified_changelog.items()
-                                                         if k in target_columns}
+        db_mod_data = UserDBModifyData()
+        db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
+        db_mod_data.uuid = getattr(row, 'uuid')
+        db_mod_data.action = UserDBModifyActionCase.modify.value()
+        db_mod_data.column_data_map = dict()
 
-            mod_data = UserDBModifyData(
-                tablename=user_db_target_table.__tablename__,
-                uuid=row_modified.uuid,
-                action=UserDBModifyActionCase.modify,
-                column_data_map=modified_changelog)
-            changes.append(mod_data)
+        for column in UserDBTableClass.column_names:
+            db_mod_data.column_data_map[column] = getattr(row, column)
 
-    for row_deleted in db.session.deleted:
-        if type(row_deleted).__tablename__ not in target_tables:
+        for user_id in db_owner_id_target_list:
+            if user_id not in modify_journal:
+                modify_journal[user_id] = UserDBModifyTaskMessage()
+                modify_journal[user_id].db_owner_id = user_id
+                modify_journal[user_id].changes = list()
+
+            modify_journal[user_id].changes.append(db_mod_data)
+
+    for row in db.session.deleted:
+        if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
-        user_db_target_table = target_tables[type(row_deleted).__tablename__]
+        UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
+        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['d']()
 
-        # TODO: Must delete cards and profiles that are not subscribed to anyone.(NEED_GC)
-        changes.append(
-            UserDBModifyData(
-                tablename=user_db_target_table.__tablename__,
-                uuid=row_modified.uuid,
-                action=UserDBModifyActionCase.delete))
+        db_mod_data = UserDBModifyData()
+        db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
+        db_mod_data.uuid = getattr(row, 'uuid')
+        db_mod_data.action = UserDBModifyActionCase.delete.value()
+        db_mod_data.column_data_map = dict()
 
-    return changes
+        for column in UserDBTableClass.column_names:
+            db_mod_data.column_data_map[column] = getattr(row, column)
+
+        for user_id in db_owner_id_target_list:
+            if user_id not in modify_journal:
+                modify_journal[user_id] = UserDBModifyTaskMessage()
+                modify_journal[user_id].db_owner_id = user_id
+                modify_journal[user_id].changes = list()
+
+            modify_journal[user_id].changes.append(db_mod_data)
+
+
+def send_userdb_journal_taskmsg(db: fsql.SQLAlchemy):
+    taskmsg = get_journal_from_session(db)
+    for k, v in taskmsg.items():
+        v.add_to_queue()

@@ -1,5 +1,6 @@
 import flask
 import flask.views
+import sqlalchemy as sql
 import json
 
 import app.common.utils as utils
@@ -84,15 +85,6 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ResourceResponseCase.resource_forbidden.create_response(
                     message='요청하신 프로필이 존재하지 않습니다.')
 
-            new_chatroom = chat_module.ChatRoom()
-            new_chatroom.name = req_body.get('name', '새 채팅방')
-            new_chatroom.description = req_body.get('description', None)
-
-            new_chatroom.created_by_user_id = requested_profile.user_id
-            new_chatroom.created_by_profile_id = requested_profile.uuid
-            db.session.add(new_chatroom)
-            db.session.commit()
-
             # Try to invite other profiles
             # Parse chatroom profile list on request body
             try:
@@ -115,6 +107,32 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return CommonResponseCase.body_invalid.create_response(
                     message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록을 이해할 수 없습니다.)')
 
+            # If there's already on 1:1 chatroom,
+            # then we need to send that room id, rather than creating new room.
+            if len(target_profiles_id_list) == 1:
+                # We can get room id by using this strategy.
+                # TODO: This query will be slow, need to be optimized
+                target_room_id = db.session.query(chat_module.ChatParticipant.room_id)\
+                    .filter(sql.or_(
+                        chat_module.ChatParticipant.user_id == target_profiles_id_list[0],
+                        chat_module.ChatParticipant.user_id == requested_profile_id, ))\
+                    .filter(sql.func.count(chat_module.ChatParticipant.room_id) == 2)\
+                    .distinct().first()
+                if target_room_id:
+                    target_room = db.session.query(chat_module.ChatRoom)\
+                        .filter(chat_module.ChatRoom.uuid == target_room_id).first()
+                    return ResourceResponseCase.resource_conflict.create_response(
+                        message='이미 1:1 채팅방이 존재합니다.', data={'room': target_room.to_dict(), }, )
+
+            new_chatroom = chat_module.ChatRoom()
+            new_chatroom.name = req_body.get('name', '새 채팅방')
+            new_chatroom.description = req_body.get('description', None)
+
+            new_chatroom.created_by_user_id = requested_profile.user_id
+            new_chatroom.created_by_profile_id = requested_profile.uuid
+            db.session.add(new_chatroom)
+            db.session.commit()
+
             target_profiles = db.session.query(profile_module.Profile)\
                 .filter(profile_module.Profile.locked_at.is_(None))\
                 .filter(profile_module.Profile.deleted_at.is_(None))\
@@ -124,9 +142,11 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ResourceResponseCase.resource_not_found.create_response(
                     message='해당 프로필들을 찾을 수 없습니다.',
                     data={'resource_name': ['profile', ]})
-            if len(target_profiles_id_list) != 1 and [p for p in target_profiles if p.user_id == access_token.user]:
+            if len(target_profiles_id_list) != 1 and [p for p in target_profiles
+                                                      if p.user_id == access_token.user
+                                                      and p.uuid != requested_profile_id]:
                 return ResourceResponseCase.resource_forbidden.create_response(
-                    message='본인의 프로필을 다른 프로필들과 함께 초대할 수 없습니다.')
+                    message='본인의 다른 프로필을 초대할 수 없습니다.')
 
             result: list[chat_invitation.ChatInvitableCheckReturnType] = list()
             for target_profile in target_profiles:

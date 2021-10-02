@@ -87,5 +87,5 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
 
 resource_route = {
-    '/sync/': SyncRoute,
+    '/sync': SyncRoute,
 }

@@ -51,11 +51,11 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
     latest_message_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CHAT_EVENT.uuid'), nullable=True)
     latest_message: 'ChatEvent' = db.relationship(
                                         'ChatEvent',
-                                        primaryjoin='TB_CHAT_ROOM.latest_message_id = TB_CHAT_EVENT.uuid')
+                                        primaryjoin='ChatRoom.latest_message_id == ChatEvent.uuid')
     latest_event_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CHAT_EVENT.uuid'), nullable=True)
     latest_event: 'ChatEvent' = db.relationship(
                                         'ChatEvent',
-                                        primaryjoin='TB_CHAT_ROOM.latest_event_id = TB_CHAT_EVENT.uuid')
+                                        primaryjoin='ChatRoom.latest_event_id == ChatEvent.uuid')
 
     participants: list['ChatParticipant'] = None  # Placeholder for backref
 

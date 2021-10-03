@@ -205,7 +205,7 @@ class CardSubscription(db_module.DefaultModelMixin, db.Model):
 
     card_user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
     card_user: user_module.User = db.relationship('User', primaryjoin=card_user_id == user_module.User.uuid)
-    card_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    card_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
     card_profile: Profile = db.relationship('Profile', primaryjoin=card_profile_id == Profile.uuid)
     card_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CARD.uuid'), nullable=False)
     card: Card = db.relationship('Card',

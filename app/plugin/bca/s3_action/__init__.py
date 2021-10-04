@@ -129,7 +129,7 @@ def create_user_db(user_id: int,
                     for column in TableClass.column_names:
                         setattr(new_row, column, getattr(load_target_data, column))
 
-                temp_user_db_session.add(new_row)
+                    temp_user_db_session.add(new_row)
 
         temp_user_db_session.commit()
         temp_user_db_engine.dispose()  # Disconnect all connections (for safety)

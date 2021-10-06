@@ -1,6 +1,7 @@
 import datetime
 import flask
 import json
+import typing
 
 import app.api.helper_class as api_class
 import app.database as db_module
@@ -78,20 +79,24 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # We must handle 'data' field specially. Parse data and modify proper columns
             # We need to get first item in columns
-            profile_data: dict[str, dict[str, str]] = json.loads(req_body['data'])
+            profile_data: dict[str, dict[str, typing.Any]] = json.loads(req_body['data'])
+            filtered_profile_data: dict[str, str] = dict()
+
             listize_target_fields = ['email', 'phone', 'sns', 'address']
             for field in listize_target_fields:
-                profile_data[field] = [{'key': k, **v} for k, v in profile_data.pop(field, {}).items()]
-                if not profile_data[field]:
-                    del(profile_data[field])
+                field_data: dict[str, dict[str, typing.Any]] = profile_data.get(field, {'value': None})['value']
+                if not field_data:
                     continue
 
-                field_first = profile_data.get(field, [None, ])[0]
-                profile_data[field] = json.dumps(field_first) if field_first else None
+                field_data: list[tuple[str, int, str]] = [(k, v['index'], v['value']) for k, v in field_data.items()]
+                field_data.sort(key=lambda i: i[1])
+                field_data = field_data[0]
+
+                filtered_profile_data[field] = json.dumps({field_data[0]: field_data[2], })
 
             # And set proper values on orm object
             editable_columns = ('email', 'phone', 'sns', 'address')
-            filtered_data = {col: data for col, data in profile_data.items() if col in editable_columns}
+            filtered_data = {col: data for col, data in filtered_profile_data.items() if col in editable_columns}
             for column, data in filtered_data.items():
                 setattr(new_profile, column, data)
 

@@ -10,6 +10,7 @@ import app.common.mailgun as mailgun
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
+import app.plugin.bca.s3_action as s3_action
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -122,6 +123,22 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         response_body = {'user': new_user.to_dict()}
         response_body['user'].update(jwt_data_body)
+
+        # Create and send new user db file
+        try:
+            user_db_file_obj = s3_action.create_user_db(new_user.uuid, True, True)
+            if not user_db_file_obj:
+                raise Exception
+            user_db_file_obj.seek(0)
+
+            file_md5 = utils.fileobj_md5(user_db_file_obj)
+            file_b64 = base64.b64encode(user_db_file_obj.read()).decode()
+            user_db_file_obj.close()
+
+            jwt_data_header.append(('ETag', file_md5))
+            response_body['db': file_b64]
+        except Exception:
+            pass
 
         response_type: api_class.Response = AccountResponseCase.user_signed_up
         if not mail_sent:

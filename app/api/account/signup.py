@@ -1,6 +1,8 @@
+import base64
 import datetime
 import flask
 import flask.views
+import json
 from passlib.hash import argon2
 import sqlalchemy as sql
 
@@ -10,6 +12,7 @@ import app.common.mailgun as mailgun
 import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
+import app.database.bca.profile as profile_module
 import app.plugin.bca.s3_action as s3_action
 
 from app.api.response_case import CommonResponseCase
@@ -75,6 +78,23 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         db.session.add(new_user)
 
+        # Create new profile for this new user
+        new_profile = profile_module.Profile()
+        new_profile.user = new_user
+        new_profile.name = new_user.nickname
+        new_profile.description = None
+
+        new_profile.data = json.dumps({
+            'email': {
+                'index': 0,
+                'value': {
+                    'default': {'index': 0, 'value': new_user.email, }
+                }
+            }
+        })
+        new_profile.email = json.dumps({'email': new_user.email, })
+        db.session.add(new_profile)
+
         try:
             db.session.commit()
         except Exception as err:
@@ -85,6 +105,12 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     data={'duplicate': [err_column_name, ]})
             else:
                 raise err
+
+        # Add profile id on user roles. This must be done after create opetaion to get UUID of profile
+        current_role: list = json.loads(new_user.role)
+        current_role.append({'type': 'profile', 'id': new_profile.uuid})
+        new_user.role = json.dumps(current_role)
+        db.session.commit()
 
         mail_sent = True
         if flask.current_app.config.get('MAIL_ENABLE'):

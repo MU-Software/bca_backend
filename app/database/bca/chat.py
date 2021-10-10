@@ -2,8 +2,10 @@ import datetime
 import enum
 
 import app.common.utils as utils
+import app.common.firebase_notify as fcm_module
 import app.database as db_module
 import app.database.user as user_module
+import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
 
 db = db_module.db
@@ -117,8 +119,17 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
             self.latest_message = new_event
 
         # TODO: Send FCM push/WS emit to all chat participants here
-        # First, set send target. Send this messages to all, including event-raised users
-        self.participants
+        # Set send target and send this messages to all, including event-raised users
+        target_users: set[int] = {participant.user_id for participant in self.participants}
+        target_users_refreshtokens = db.session.query(jwt_module.RefreshToken)\
+            .filter(jwt_module.RefreshToken.user.in_(target_users))\
+            .all()
+        for refresh_token in target_users_refreshtokens:
+            if refresh_token.client_token:
+                try:
+                    fcm_module.firebase_send_notify(data=new_event.to_dict(), target_token=refresh_token.client_token)
+                except Exception as err:
+                    print(utils.get_traceback_msg(err))
 
         if db_commit:
             db.session.commit()

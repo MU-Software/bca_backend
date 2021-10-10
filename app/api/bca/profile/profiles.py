@@ -124,8 +124,8 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 redis_db.set(redis_key, 'revoked', datetime.timedelta(weeks=2))
 
             # Apply changeset on user db
-            sqs_action.queue_userdb_journal_taskmsg(db)
-            db.session.commit()
+            with sqs_action.UserDBJournalCreator(db):
+                db.session.commit()
 
             # # Apply new card data to user db
             # # This must be done after commit to get commit_id and modified_at columns' data

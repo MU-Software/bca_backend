@@ -95,8 +95,8 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db.session.add(new_card)
 
             # Apply changeset on user db
-            sqs_action.queue_userdb_journal_taskmsg(db)
-            db.session.commit()
+            with sqs_action.UserDBJournalCreator(db):
+                db.session.commit()
 
             # # Apply new card data to user db
             # # This must be done after commit to get commit_id and modified_at columns' data

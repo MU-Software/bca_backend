@@ -103,10 +103,13 @@ class UserDBModifyTaskMessage:
             MessageGroupId='userdbmod1')
 
 
-def get_journal_from_session(db: fsql.SQLAlchemy) -> dict[int, UserDBModifyTaskMessage]:
+def get_journal_from_rowlist(
+        session_added: list[typing.Type[db.Model]] = None,
+        session_modified: list[typing.Type[db.Model]] = None,
+        session_deleted: list[typing.Type[db.Model]] = None) -> dict[int, UserDBModifyTaskMessage]:
     modify_journal: dict[int, UserDBModifyTaskMessage] = dict()
 
-    for row in db.session.new:
+    for row in session_added:
         if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
@@ -130,7 +133,7 @@ def get_journal_from_session(db: fsql.SQLAlchemy) -> dict[int, UserDBModifyTaskM
 
             modify_journal[user_id].changes.append(db_mod_data)
 
-    for row in db.session.dirty:
+    for row in session_modified:
         if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
@@ -154,7 +157,7 @@ def get_journal_from_session(db: fsql.SQLAlchemy) -> dict[int, UserDBModifyTaskM
 
             modify_journal[user_id].changes.append(db_mod_data)
 
-    for row in db.session.deleted:
+    for row in session_deleted:
         if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
@@ -179,7 +182,22 @@ def get_journal_from_session(db: fsql.SQLAlchemy) -> dict[int, UserDBModifyTaskM
             modify_journal[user_id].changes.append(db_mod_data)
 
 
-def send_userdb_journal_taskmsg(db: fsql.SQLAlchemy):
-    taskmsg = get_journal_from_session(db)
-    for k, v in taskmsg.items():
-        v.add_to_queue()
+class UserDBJournalCreator:
+    db: fsql.SQLAlchemy = None
+    session_added: list[typing.Type[db.Model]] = None
+    session_modified: list[typing.Type[db.Model]] = None
+    session_deleted: list[typing.Type[db.Model]] = None
+
+    def __init__(self, db: fsql.SQLAlchemy):
+        self.db = db
+
+    def __enter__(self):
+        # Dirty way to copy list of added/modified/deleted rows on session
+        self.session_added = [r for r in db.session.new]
+        self.session_modified = [r for r in db.session.dirty]
+        self.session_deleted = [r for r in db.session.deleted]
+
+    def __exit__(self, ex_type, ex_value, ex_traceback):
+        taskmsg = get_journal_from_rowlist(self.session_added, self.session_modified, self.session_deleted)
+        for k, v in taskmsg.items():
+            v.add_to_queue()

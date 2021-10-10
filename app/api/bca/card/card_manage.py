@@ -123,8 +123,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 setattr(target_card, column, data)
 
             # Apply changeset on user db
-            sqs_action.queue_userdb_journal_taskmsg(db)
-            db.session.commit()
+            with sqs_action.UserDBJournalCreator(db):
+                db.session.commit()
 
             # # Calculate changeset of row, commit, and get commit_id
             # changeset: dict[str, list] = utils.get_model_changes(target_card)
@@ -177,8 +177,8 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             target_card.why_deleted = 'DELETE_REQUESTED'
 
             # Apply changeset on user db
-            sqs_action.queue_userdb_journal_taskmsg(db)
-            db.session.commit()
+            with sqs_action.UserDBJournalCreator(db):
+                db.session.commit()
 
             # # Calculate changeset of row, commit, and get commit_id
             # # Actually, Card deletion doesn't delete card.

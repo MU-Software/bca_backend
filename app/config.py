@@ -44,6 +44,11 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', None)
     GOOGLE_REFRESH_TOKEN = os.environ.get('GOOGLE_REFRESH_TOKEN', None)
 
+    AWS_S3_BUCKET_NAME = os.environ.get('AWS_S3_BUCKET_NAME', None)
+    AWS_TASK_SQS_URL = os.environ.get('AWS_TASK_SQS_URL', None)
+
+    FIREBASE_CERTIFICATE = os.environ.get('FIREBASE_CERTIFICATE', None)
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

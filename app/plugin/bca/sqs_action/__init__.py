@@ -116,6 +116,9 @@ def get_journal_from_rowlist(
         UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
         db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['c']()
 
+        # TODO: if the table is ProfileRelation or CardSubscription,
+        # then we need to add Profile and Card row on user db too.
+
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
         db_mod_data.uuid = getattr(row, 'uuid')
@@ -184,9 +187,9 @@ def get_journal_from_rowlist(
 
 class UserDBJournalCreator:
     db: fsql.SQLAlchemy = None
-    session_added: list[typing.Type[db.Model]] = None
-    session_modified: list[typing.Type[db.Model]] = None
-    session_deleted: list[typing.Type[db.Model]] = None
+    session_added: list = None
+    session_modified: list = None
+    session_deleted: list = None
 
     def __init__(self, db: fsql.SQLAlchemy):
         self.db = db

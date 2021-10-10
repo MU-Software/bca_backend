@@ -3,6 +3,8 @@ import enum
 import flask
 import flask.views
 import pathlib as pt
+import secrets
+import time
 import werkzeug.utils
 
 import app.common.utils as utils
@@ -30,6 +32,7 @@ class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
     def get(self, profile_id: int, filename: str, req_header: dict, access_token: jwt_module.AccessToken):
         '''
         description: Returns target file.
+            This returns binary file if request requested Content-Type as `not application/json`
         responses:
             - resource_found
             - resource_not_found
@@ -82,7 +85,10 @@ class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
             filename = werkzeug.utils.secure_filename(file.filename)
             if file and allowed_file(filename):
                 filepath = pt.Path.cwd() / 'user_content' / str(profile_id) / 'uploads'
-                file.save(filepath / filename)
+                filename = '.'.join(filename.split('.')[:-1])
+                filename += '-' + str(int(time.time())) + '-' + secrets.token_urlsafe(6)
+                fileext = filename.split('.')[-1].lower()
+                file.save(filepath / f'{filename}.{fileext}')
 
             return ResourceResponseCase.resource_created.create_response(
                 data={'file': {

@@ -74,11 +74,13 @@ def create_user_db(user_id: int,
 
             following_profiles_query = db.session.query(profile_module.ProfileRelation.to_profile_id)\
                 .filter(profile_module.ProfileRelation.from_profile_id == user_id)\
+                .join(profile_module.ProfileRelation.to_profile, aliased=True)\
                 .filter(profile_module.ProfileRelation.to_profile.locked_at.is_(None))\
                 .distinct().subquery()
 
             subscribed_cards_profiles_query = db.session.query(profile_module.CardSubscription.card_profile_id)\
                 .filter(profile_module.CardSubscription.subscribed_user_id == user_id)\
+                .join(profile_module.CardSubscription.card, aliased=True)\
                 .filter(profile_module.CardSubscription.card.locked_at.is_(None))\
                 .distinct().subquery()
 
@@ -95,12 +97,14 @@ def create_user_db(user_id: int,
             load_target_profile_relations: list[profile_module.ProfileRelation] = db.session.query(
                 profile_module.ProfileRelation)\
                 .filter(profile_module.ProfileRelation.from_profile_id == user_id)\
+                .join(profile_module.ProfileRelation.to_profile, aliased=True)\
                 .filter(profile_module.ProfileRelation.to_profile.locked_at.is_(None))\
                 .distinct(profile_module.ProfileRelation.uuid).all()
 
             # All card subscriptions to be loaded
             card_subscriptions_query = db.session.query(profile_module.CardSubscription)\
                 .filter(profile_module.CardSubscription.subscribed_user_id == user_id)\
+                .join(profile_module.CardSubscription.card, aliased=True)\
                 .filter(profile_module.CardSubscription.card.locked_at.is_(None))\
                 .distinct(profile_module.CardSubscription.uuid)
 

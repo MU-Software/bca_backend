@@ -44,11 +44,15 @@ class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if not filepath.exists():
                 return ResourceResponseCase.resource_not_found.create_response()
 
-            return ResourceResponseCase.resource_created.create_response(
-                data={'file': {
-                    'resource': 'file',
-                    'size': filepath.stat().st_size,
-                    'data': base64.urlsafe_b64encode(filepath.read_bytes()).decode(), }, }, )
+            request_content_type: str = flask.request.accept_mimetypes
+            if 'application/json' in request_content_type:
+                return ResourceResponseCase.resource_created.create_response(
+                    data={'file': {
+                        'resource': 'file',
+                        'size': filepath.stat().st_size,
+                        'data': base64.urlsafe_b64encode(filepath.read_bytes()).decode(), }, }, )
+            else:
+                return flask.send_file(filepath)
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

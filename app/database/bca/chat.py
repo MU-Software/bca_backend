@@ -142,6 +142,8 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
     def to_dict(self, detailed: bool = False):
         result_dict = {
             'resource': 'chat_room',
+
+            'uuid': self.uuid,
             'name': self.name,
             'description': self.description,
             'participant_num': len(self.participants),

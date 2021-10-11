@@ -75,8 +75,11 @@ class Profile(db_module.DefaultModelMixin, db.Model):
             'is_private': self.private,
 
             'created_at': self.created_at,
-            'modified': self.created_at != self.modified_at,
             'modified_at': self.modified_at,
+            'modified': self.created_at != self.modified_at,
+            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'commit_id': self.commit_id,
         }
 
         return result
@@ -176,8 +179,11 @@ class Card(db_module.DefaultModelMixin, db.Model):
             'preview_url': self.preview_url,
 
             'created_at': self.created_at,
-            'modified': self.created_at != self.modified_at,
             'modified_at': self.modified_at,
+            'modified': self.created_at != self.modified_at,
+            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'commit_id': self.commit_id,
         }
 
         if self.locked_at:

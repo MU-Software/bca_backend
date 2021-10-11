@@ -85,7 +85,7 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         self.create_new_event(ChatEventType.PARTICIPANT_OUT, participant, db_commit=False)
 
         if not self.participants:
-            self.deleted_at = datetime.datetime.utcnow().replace(tz=utils.UTC)
+            self.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
 
         if db_commit:
             db.session.commit()
@@ -149,6 +149,13 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
             'participant_num': len(self.participants),
             'created_by_profile_id': self.created_by_profile_id,
             'created_by_profile': self.created_by_profile.to_dict(),
+
+            'created_at': self.created_at,
+            'modified_at': self.modified_at,
+            'modified': self.created_at != self.modified_at,
+            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'commit_id': self.commit_id,
         }
 
         if detailed:
@@ -203,6 +210,13 @@ class ChatParticipant(db_module.DefaultModelMixin, db.Model):
 
             'last_read_at': self.last_read_at,
             'last_read_message_id': self.last_read_message_id,
+
+            'created_at': self.created_at,
+            'modified_at': self.modified_at,
+            'modified': self.created_at != self.modified_at,
+            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'commit_id': self.commit_id,
         }
 
 
@@ -249,4 +263,11 @@ class ChatEvent(db_module.DefaultModelMixin, db.Model):
             'event_index': self.event_index,
             'event_type': self.event_type,
             'message': self.message,
+
+            'created_at': self.created_at,
+            'modified_at': self.modified_at,
+            'modified': self.created_at != self.modified_at,
+            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
+            'commit_id': self.commit_id,
         }

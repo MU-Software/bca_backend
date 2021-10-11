@@ -114,10 +114,7 @@ def get_journal_from_rowlist(
             continue
 
         UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
-        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['c']()
-
-        # TODO: if the table is ProfileRelation or CardSubscription,
-        # then we need to add Profile and Card row on user db too.
+        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['c'](row)
 
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
@@ -136,12 +133,45 @@ def get_journal_from_rowlist(
 
             modify_journal[user_id].changes.append(db_mod_data)
 
+        # If the table is ProfileRelation or CardSubscription,
+        # then we need to add Profile and Card row on user db too.
+        if isinstance(row, (profile_module.ProfileRelation, profile_module.CardSubscription)):
+            target_rows = list()
+            db_owner_id_target = list()
+            if isinstance(row, profile_module.ProfileRelation):
+                target_rows.append(row.to_profile)
+                db_owner_id_target.append(row.from_user_id)
+            else:
+                target_rows.append(row.card)
+                target_rows.append(row.card_profile)
+                db_owner_id_target.append(row.subscribed_user_id)
+
+            for target_row in target_rows:
+                UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
+
+                db_mod_data = UserDBModifyData()
+                db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
+                db_mod_data.uuid = getattr(row, 'uuid')
+                db_mod_data.action = UserDBModifyActionCase.add.value()
+                db_mod_data.column_data_map = dict()
+
+                for column in UserDBTableClass.column_names:
+                    db_mod_data.column_data_map[column] = getattr(row, column)
+
+                for user_id in db_owner_id_target:
+                    if user_id not in modify_journal:
+                        modify_journal[user_id] = UserDBModifyTaskMessage()
+                        modify_journal[user_id].db_owner_id = user_id
+                        modify_journal[user_id].changes = list()
+
+                    modify_journal[user_id].changes.append(db_mod_data)
+
     for row in session_modified:
         if not isinstance(row, tuple(TARGET_TABLE_MAP)):
             continue
 
         UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
-        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['u']()
+        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['u'](row)
 
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__
@@ -165,7 +195,7 @@ def get_journal_from_rowlist(
             continue
 
         UserDBTableClass = TARGET_TABLE_MAP[row.__class__]['user_db_table_class']
-        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['d']()
+        db_owner_id_target_list = TARGET_TABLE_MAP[row.__class__]['db_owner_id_calc']['d'](row)
 
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__].__tablename__

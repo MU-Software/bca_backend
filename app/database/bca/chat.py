@@ -118,7 +118,7 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         if event_type in (ChatEventType.MESSAGE_POSTED, ChatEventType.MESSAGE_POSTED_IMAGE, ):
             self.latest_message = new_event
 
-        # TODO: Send FCM push/WS emit to all chat participants here
+        # Send FCM push to all chat participants here
         # Set send target and send this messages to all, including event-raised users
         target_users: set[int] = {participant.user_id for participant in self.participants}
         target_users_refreshtokens = db.session.query(jwt_module.RefreshToken)\
@@ -127,7 +127,12 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         for refresh_token in target_users_refreshtokens:
             if refresh_token.client_token:
                 try:
-                    fcm_module.firebase_send_notify(data=new_event.to_dict(), target_token=refresh_token.client_token)
+                    title, body = None, None
+                    if new_event.event_type == ChatEventType.MESSAGE_POSTED:
+                        title, body = self.name, new_event.message
+                    fcm_module.firebase_send_notify(
+                        title=title, body=body, data=new_event.to_dict(),
+                        target_token=refresh_token.client_token)
                 except Exception as err:
                     print(utils.get_traceback_msg(err))
 
@@ -185,6 +190,8 @@ class ChatParticipant(db_module.DefaultModelMixin, db.Model):
     def to_dict(self):
         return {
             'resource': 'chat_participant',
+
+            'uuid': self.uuid,
             'room_id': self.room_id,
             'room_name': self.room_name,
 

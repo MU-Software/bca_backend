@@ -1,13 +1,12 @@
 import base64
-import enum
 import flask
 import flask.views
 import pathlib as pt
 import secrets
 import time
+import typing
 import werkzeug.utils
 
-import app.common.utils as utils
 import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
@@ -22,24 +21,22 @@ def allowed_file(filename: str):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-class BCaFileType(utils.EnumAutoName):
-    PROFILE = enum.auto()
-    CARD = enum.auto()
-
-
-class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, }, )
-    def get(self, profile_id: int, filename: str, req_header: dict, access_token: jwt_module.AccessToken):
+class FileRoute(flask.views.MethodView, api_class.MethodViewMixin):
+    def get(self, filename: typing.Optional[str] = None):
         '''
         description: Returns target file.
             This returns binary file if request requested Content-Type as `not application/json`
         responses:
             - resource_found
             - resource_not_found
+            - http_forbidden
             - server_error
         '''
         try:
-            filepath = pt.Path.cwd() / 'user_content' / str(profile_id) / 'uploads'
+            if filename:
+                return CommonResponseCase.http_forbidden.create_response()
+
+            filepath = pt.Path.cwd() / 'user_content' / 'uploads'
             filepath /= werkzeug.utils.secure_filename(filename)
             if not filepath.exists():
                 return ResourceResponseCase.resource_not_found.create_response()
@@ -57,23 +54,19 @@ class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
-    @api_class.RequestHeader(
-        required_fields={'X-Profile-Id': {'type': 'integer'}, },
-        auth={api_class.AuthType.Bearer: True, })
-    @api_class.RequestQuery(optional_fields={'filetype': {'type': 'string', }, }, )
-    def post(self, profile_id: int, filename: str, req_header: dict, access_token: jwt_module.AccessToken):
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
+    def post(self, req_header: dict, access_token: jwt_module.AccessToken, filename: typing.Optional[str] = None):
         '''
         description: Upload new file.
         responses:
             - resource_modified
             - resource_not_found
+            - http_forbidden
             - server_error
         '''
         try:
-            requested_profile_id = utils.safe_int(req_header.get('X-Profile-Id', 0))
-            if 'X-Profile-Id' in req_header and str(requested_profile_id) not in access_token.role:
-                return ResourceResponseCase.resource_forbidden.create_response(
-                    message='접속하고 계신 프로필은 본인의 프로필이 아닙니다.')
+            if filename:
+                return CommonResponseCase.http_forbidden.create_response()
 
             api_ver = flask.current_app.config.get('RESTAPI_VERSION')
 
@@ -88,9 +81,11 @@ class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             filename = werkzeug.utils.secure_filename(file.filename)
             if file and allowed_file(filename):
-                filepath = pt.Path.cwd() / 'user_content' / str(profile_id) / 'uploads'
+                filepath = pt.Path.cwd() / 'user_content' / 'uploads'
                 filename = '.'.join(filename.split('.')[:-1])
-                filename += '-' + str(int(time.time())) + '-' + secrets.token_urlsafe(6)
+                filename += '-' + str(access_token.user)
+                filename += '-' + str(int(time.time()))
+                filename += '-' + secrets.token_urlsafe(6)
                 fileext = filename.split('.')[-1].lower()
                 file.save(filepath / f'{filename}.{fileext}')
 
@@ -98,32 +93,32 @@ class ProfileFileRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 data={'file': {
                     'resource': 'file',
                     'size': file.content_length,
-                    'url': f'/api/{api_ver}/profiles/{profile_id}/uploads/{filename}', }, }, )
+                    'url': f'/api/{api_ver}/uploads/{filename}', }, }, )
 
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
-    @api_class.RequestHeader(
-        required_fields={'X-Profile-Id': {'type': 'integer'}, },
-        auth={api_class.AuthType.Bearer: True, })
-    def delete(self, profile_id: int, filename: str, req_header: dict, access_token: jwt_module.AccessToken):
+    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
+    def delete(self, req_header: dict, access_token: jwt_module.AccessToken, filename: typing.Optional[str] = None):
         '''
         description: Delete file.
         responses:
             - resource_deleted
             - resource_not_found
+            - resource_forbidden
+            - http_not_found
             - server_error
         '''
         try:
-            requested_profile_id = utils.safe_int(req_header.get('X-Profile-Id', 0))
-            if 'X-Profile-Id' in req_header and str(requested_profile_id) not in access_token.role:
-                return ResourceResponseCase.resource_forbidden.create_response(
-                    message='접속하고 계신 프로필은 본인의 프로필이 아닙니다.')
+            if not filename:
+                return CommonResponseCase.http_not_found.create_response()
 
-            filepath = pt.Path.cwd() / 'user_content' / str(profile_id) / 'uploads'
+            filepath = pt.Path.cwd() / 'user_content' / 'uploads'
             filepath /= werkzeug.utils.secure_filename(filename)
             if not filepath.exists():
                 return ResourceResponseCase.resource_not_found.create_response()
+            if str(access_token.user) not in filepath:
+                return ResourceResponseCase.resource_forbidden.create_response()
 
             filepath.unlink(True)
 

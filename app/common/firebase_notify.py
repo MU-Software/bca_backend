@@ -3,6 +3,8 @@ from firebase_admin import credentials
 from firebase_admin import messaging
 import flask
 
+import app.common.utils as utils
+
 
 def firebase_send_notify(title: str = None, body: str = None, data: dict = None,
                          topic: str = None, target_token: str = None):
@@ -16,15 +18,23 @@ def firebase_send_notify(title: str = None, body: str = None, data: dict = None,
     if not any((title, body, data)):
         raise ValueError('At least one of (title, body)|data must be set')
 
-    notification = None
     data = data if data else {'click_action': 'FLUTTER_NOTIFICATION_CLICK', }
+    # all keys and values in data must be a string.
+    tmp_dict = dict()
+    safe_str = utils.ignore_exception(Exception, '')(str)
+    for k, v in data.items():
+        tmp_dict[str(k)] = safe_str(v)
+    data = tmp_dict
+
     if any((title, body)):
-        title = title or ''
-        body = body or ''
+        notification = None
+        title = str(title) or ''
+        body = str(body) or ''
         notification = messaging.Notification(title=title, body=body)
 
     message = messaging.Message(
-        data=data, notification=notification,
+        data=data,
+        notification=notification,
 
         # android=messaging.AndroidConfig(
         #     ttl=datetime.timedelta(seconds=3600),

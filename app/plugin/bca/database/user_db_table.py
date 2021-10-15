@@ -111,7 +111,7 @@ class Card:
 
     column_names = [
         'uuid',
-        'name', 'data', 'preview_url', 'private',
+        'name', 'data', 'preview_url', 'private', 'profile_id',
         'commit_id', 'created_at', 'modified_at', 'deleted_at', 'why_deleted',
     ]
 

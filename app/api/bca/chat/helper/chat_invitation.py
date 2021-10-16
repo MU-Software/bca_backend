@@ -23,6 +23,7 @@ def is_profile_chat_invitable(
         requested_user_id: int,
         target_room: chat_module.ChatRoom,
         target_profile: profile_module.Profile,
+        check_is_user_in_room: bool = False,
         db_commit: bool = False):
 
     if not target_profile:
@@ -84,14 +85,15 @@ def is_profile_chat_invitable(
         #      so target user enters the room.
 
         # If requested user is not in target room, then permission denied. Senario 1.
-        req_profile_participant_record = db.session.query(chat_module.ChatParticipant)\
-            .filter(chat_module.ChatParticipant.room_id == target_room.uuid)\
-            .filter(chat_module.ChatParticipant.profile_id == requested_profile_id)\
-            .first()
-        if not req_profile_participant_record:
-            return ChatInvitableCheckReturnType(
-                profile_id=target_profile.uuid, success=False, code=403,
-                message='참여하지 않은 방에 인원을 초대할 수 없습니다.', data={})
+        if check_is_user_in_room:
+            req_profile_participant_record = db.session.query(chat_module.ChatParticipant)\
+                .filter(chat_module.ChatParticipant.room_id == target_room.uuid)\
+                .filter(chat_module.ChatParticipant.profile_id == requested_profile_id)\
+                .first()
+            if not req_profile_participant_record:
+                return ChatInvitableCheckReturnType(
+                    profile_id=target_profile.uuid, success=False, code=403,
+                    message='참여하지 않은 방에 인원을 초대할 수 없습니다.', data={})
 
         # Now, we need to check relationship between those two profiles.
         # Let's query those relationships on a single query.

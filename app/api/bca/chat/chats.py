@@ -155,6 +155,7 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     requested_user_id=access_token.user,
                     target_room=new_chatroom,
                     target_profile=target_profile,
+                    check_is_user_in_room=False,
                     db_commit=True))
 
             # If all profiles were failed to invite

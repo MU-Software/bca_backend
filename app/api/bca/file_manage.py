@@ -82,12 +82,12 @@ class FileRoute(flask.views.MethodView, api_class.MethodViewMixin):
             filename = werkzeug.utils.secure_filename(file.filename)
             if file and allowed_file(filename):
                 filepath = pt.Path.cwd() / 'user_content' / 'uploads'
-                filename = '.'.join(filename.split('.')[:-1])
-                filename += '-' + str(access_token.user)
-                filename += '-' + str(int(time.time()))
-                filename += '-' + secrets.token_urlsafe(6)
+                result_filename = '.'.join(filename.split('.')[:-1])
+                result_filename += '-' + str(access_token.user)
+                result_filename += '-' + str(int(time.time()))
+                result_filename += '-' + secrets.token_urlsafe(6)
                 fileext = filename.split('.')[-1].lower()
-                file.save(filepath / f'{filename}.{fileext}')
+                file.save(filepath / f'{result_filename}.{fileext}')
 
             return ResourceResponseCase.resource_created.create_response(
                 data={'file': {

@@ -1,5 +1,6 @@
 import boto3
 import botocore.client
+import enum
 import flask
 import io
 import pathlib as pt
@@ -131,7 +132,10 @@ def create_user_db(user_id: int,
                     new_row = TableClass()
 
                     for column in TableClass.column_names:
-                        setattr(new_row, column, getattr(load_target_data, column))
+                        result_val = getattr(load_target_data, column)
+                        if isinstance(result_val, enum.Enum):
+                            result_val = result_val.value
+                        setattr(new_row, column, result_val)
 
                     temp_user_db_session.add(new_row)
 

@@ -127,10 +127,17 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_chatroom = chat_module.ChatRoom()
             new_chatroom.name = req_body.get('name', '새 채팅방')
             new_chatroom.description = req_body.get('description', None)
-
-            new_chatroom.created_by_user_id = requested_profile.user_id
+            new_chatroom.created_by_user_id = access_token.user
             new_chatroom.created_by_profile_id = requested_profile.uuid
             db.session.add(new_chatroom)
+
+            creator_as_participant = chat_module.ChatParticipant()
+            creator_as_participant.room = new_chatroom
+            creator_as_participant.user_id = access_token.user
+            creator_as_participant.profile_id = requested_profile.uuid
+            creator_as_participant.profile_name = requested_profile.name
+            db.session.add(creator_as_participant)
+
             db.session.commit()
 
             target_profiles = db.session.query(profile_module.Profile)\

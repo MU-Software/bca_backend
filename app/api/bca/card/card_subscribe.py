@@ -6,7 +6,6 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-# import app.plugin.bca.sqs_action.action_definition as sqs_action_def
 import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
@@ -157,9 +156,6 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
 
-            # # This must be done after commit to get commit_id and modified_at columns' data
-            # sqs_action_def.card_subscribed(new_subscription, target_card)
-
             return CardSubscriptionResponseCase.card_subscribed.create_response()
 
         except Exception:
@@ -192,9 +188,6 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if not target_card_subscription:
                 # Card is not subscribing the card!
                 return CardSubscriptionResponseCase.card_not_subscribing.create_response()
-
-            # # Apply card unsubscription on user db
-            # sqs_action_def.card_unsubscribed(target_card_subscription)
 
             db.session.delete(target_card_subscription)
 

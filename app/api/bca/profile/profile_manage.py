@@ -10,7 +10,6 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-# import app.plugin.bca.sqs_action.action_definition as sqs_action_def
 import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
@@ -232,15 +231,6 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
 
-            # # Calculate changeset of row, commit, and get commit_id
-            # changeset: dict[str, list] = utils.get_model_changes(target_profile)
-            # db_module.db.session.commit()
-            # changeset['commit_id'] = [None, target_profile.commit_id]
-            # changeset['modified_at'] = [None, target_profile.modified_at]
-
-            # # Now, create and apply this on user db
-            # sqs_action_def.profile_modified(target_profile, changeset)
-
             return ResourceResponseCase.resource_deleted.create_response()
         except Exception:
             return CommonResponseCase.server_error.create_response()
@@ -314,15 +304,6 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Apply changeset on user db
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
-
-            # # Calculate changeset of row, commit, and get commit_id
-            # changeset: dict[str, list] = utils.get_model_changes(target_profile)
-            # db_module.db.session.commit()
-            # changeset['commit_id'] = [None, target_profile.commit_id]
-            # changeset['modified_at'] = [None, target_profile.modified_at]
-
-            # # Now, create and apply this on user db
-            # sqs_action_def.profile_modified(target_profile, changeset)
 
             return ResourceResponseCase.resource_deleted.create_response()
         except Exception:

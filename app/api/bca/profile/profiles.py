@@ -8,7 +8,6 @@ import app.database as db_module
 import app.database.user as user_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-# import app.plugin.bca.sqs_action.action_definition as sqs_action_def
 import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
@@ -128,10 +127,6 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Apply changeset on user db
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
-
-            # # Apply new card data to user db
-            # # This must be done after commit to get commit_id and modified_at columns' data
-            # sqs_action_def.profile_created(new_profile)
 
             return ResourceResponseCase.resource_created.create_response(
                 header=(('ETag', new_profile.commit_id, ), ),

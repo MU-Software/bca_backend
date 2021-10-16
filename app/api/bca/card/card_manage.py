@@ -8,7 +8,6 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-# import app.plugin.bca.sqs_action.action_definition as sqs_action_def
 import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
@@ -126,15 +125,6 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
 
-            # # Calculate changeset of row, commit, and get commit_id
-            # changeset: dict[str, list] = utils.get_model_changes(target_card)
-            # db_module.db.session.commit()
-            # changeset['commit_id'] = [None, target_card.commit_id]
-            # changeset['modified_at'] = [None, target_card.modified_at]
-
-            # # Now, create and apply user db task
-            # sqs_action_def.card_modified(target_card, changeset)
-
             return ResourceResponseCase.resource_modified.create_response()
         except Exception:
             return CommonResponseCase.server_error.create_response()
@@ -179,17 +169,6 @@ class CardManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Apply changeset on user db
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
-
-            # # Calculate changeset of row, commit, and get commit_id
-            # # Actually, Card deletion doesn't delete card.
-            # # Instead, this marks card as deleted, so this is Card Modification.
-            # changeset: dict[str, list] = utils.get_model_changes(target_card)
-            # db.session.commit()
-            # changeset['commit_id'] = [None, target_card.commit_id]
-            # changeset['modified_at'] = [None, target_card.modified_at]
-
-            # # Now, create and apply user db task
-            # sqs_action_def.card_modified(target_card, changeset)
 
             return ResourceResponseCase.resource_deleted.create_response()
         except Exception:

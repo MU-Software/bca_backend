@@ -86,7 +86,7 @@ class UserDBModifyTaskMessage:
 
         for change_data in self.changes:
             changelog[change_data.tablename][change_data.uuid] = {
-                'action': change_data.action.name,
+                'action': change_data.action,
                 'data': change_data.column_data_map
             }
 
@@ -119,7 +119,7 @@ def get_journal_from_rowlist(
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__]['user_db_table_class'].__tablename__
         db_mod_data.uuid = getattr(row, 'uuid')
-        db_mod_data.action = UserDBModifyActionCase.add.value()
+        db_mod_data.action = UserDBModifyActionCase.add.value
         db_mod_data.column_data_map = dict()
 
         for column in UserDBTableClass.column_names:
@@ -152,7 +152,7 @@ def get_journal_from_rowlist(
                 db_mod_data = UserDBModifyData()
                 db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__]['user_db_table_class'].__tablename__
                 db_mod_data.uuid = getattr(row, 'uuid')
-                db_mod_data.action = UserDBModifyActionCase.add.value()
+                db_mod_data.action = UserDBModifyActionCase.add.value
                 db_mod_data.column_data_map = dict()
 
                 for column in UserDBTableClass.column_names:
@@ -176,7 +176,7 @@ def get_journal_from_rowlist(
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__]['user_db_table_class'].__tablename__
         db_mod_data.uuid = getattr(row, 'uuid')
-        db_mod_data.action = UserDBModifyActionCase.modify.value()
+        db_mod_data.action = UserDBModifyActionCase.modify.value
         db_mod_data.column_data_map = dict()
 
         for column in UserDBTableClass.column_names:
@@ -200,7 +200,7 @@ def get_journal_from_rowlist(
         db_mod_data = UserDBModifyData()
         db_mod_data.tablename = TARGET_TABLE_MAP[row.__class__]['user_db_table_class'].__tablename__
         db_mod_data.uuid = getattr(row, 'uuid')
-        db_mod_data.action = UserDBModifyActionCase.delete.value()
+        db_mod_data.action = UserDBModifyActionCase.delete.value
         db_mod_data.column_data_map = dict()
 
         for column in UserDBTableClass.column_names:

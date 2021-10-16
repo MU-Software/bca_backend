@@ -89,7 +89,7 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
                          event_type: 'ChatEventType',
                          caused_by_participant: 'ChatParticipant',
                          message: str = None,
-                         db_commit: bool = False):
+                         db_commit: bool = False) -> 'ChatEvent':
         latest_event = db.session.query(ChatEvent)\
             .filter(ChatEvent.room_id == self.uuid)\
             .order_by(ChatEvent.event_index.desc()).first()
@@ -101,11 +101,11 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         if message and event_type in (ChatEventType.MESSAGE_POSTED, ChatEventType.MESSAGE_POSTED_IMAGE, ):
             new_event.message = message
         else:
-            new_event.message = event_message_kor[event_type].format(caused_by_participant.profile.to_dict())
+            new_event.message = event_message_kor[event_type].format(**caused_by_participant.profile.to_dict())
 
         new_event.caused_by_user_id = caused_by_participant.user_id
         new_event.caused_by_profile_id = caused_by_participant.profile_id
-        new_event.caused_by_participant = caused_by_participant
+        new_event.caused_by_participant_id = caused_by_participant.uuid
 
         db.session.add(new_event)
 
@@ -168,9 +168,9 @@ class ChatParticipant(db_module.DefaultModelMixin, db.Model):
                                                         order_by='ChatParticipant.user_id.desc()'))
 
     # User-set room name
-    room_name = db.Column(db.String, nullable=False)
+    room_name = db.Column(db.String, nullable=True)
     # User-set profile name in this room
-    profile_name = db.Column(db.String, nullable=False)
+    profile_name = db.Column(db.String, nullable=True)
 
     # Unnormalize for the fast query
     user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
@@ -205,7 +205,7 @@ class ChatEvent(db_module.DefaultModelMixin, db.Model):
                      db.Sequence('SQ_ChatMessage_UUID'),
                      primary_key=True,
                      nullable=False)
-    event_index = db.Column(db_module.PrimaryKeyType, nullable=False)
+    event_index = db.Column(db.Integer, nullable=False)
     event_type = db.Column(db.String, nullable=False)
     message = db.Column(db.String, nullable=False)
 

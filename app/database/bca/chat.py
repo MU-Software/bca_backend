@@ -50,15 +50,6 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
                                             'Profile',
                                             primaryjoin=created_by_profile_id == profile_module.Profile.uuid)
 
-    latest_message_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CHAT_EVENT.uuid'), nullable=True)
-    latest_message: 'ChatEvent' = db.relationship(
-                                        'ChatEvent',
-                                        primaryjoin='ChatRoom.latest_message_id == ChatEvent.uuid')
-    latest_event_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CHAT_EVENT.uuid'), nullable=True)
-    latest_event: 'ChatEvent' = db.relationship(
-                                        'ChatEvent',
-                                        primaryjoin='ChatRoom.latest_event_id == ChatEvent.uuid')
-
     participants: list['ChatParticipant'] = None  # Placeholder for backref
 
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -75,8 +66,8 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         new_participant.profile_id = profile.uuid
         new_participant.profile_name = profile.name
 
-        new_participant.last_read_message_id = self.latest_message_id
         db.session.add(new_participant)
+        db.session.commit()
 
         self.create_new_event(ChatEventType.PARTICIPANT_IN, new_participant, db_commit=db_commit)
 
@@ -99,10 +90,14 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
                          caused_by_participant: 'ChatParticipant',
                          message: str = None,
                          db_commit: bool = False):
+        latest_event = db.session.query(ChatEvent)\
+            .filter(ChatEvent.room_id == self.uuid)\
+            .order_by(ChatEvent.event_index.desc()).first()
+
         new_event = ChatEvent()
         new_event.room = self
-        new_event.event_index = self.latest_event.event_index + 1
-        new_event.event_type = event_type
+        new_event.event_index = latest_event.event_index + 1 if latest_event else 0
+        new_event.event_type = event_type.value
         if message and event_type in (ChatEventType.MESSAGE_POSTED, ChatEventType.MESSAGE_POSTED_IMAGE, ):
             new_event.message = message
         else:
@@ -114,9 +109,8 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
 
         db.session.add(new_event)
 
-        self.latest_event = new_event
-        if event_type in (ChatEventType.MESSAGE_POSTED, ChatEventType.MESSAGE_POSTED_IMAGE, ):
-            self.latest_message = new_event
+        if db_commit:
+            db.session.commit()
 
         # Send FCM push to all chat participants here
         # Set send target and send this messages to all, including event-raised users
@@ -136,10 +130,9 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
                 except Exception as err:
                     print(utils.get_traceback_msg(err))
 
-        if db_commit:
-            db.session.commit()
+        return new_event
 
-    def to_dict(self, detailed: bool = False):
+    def to_dict(self):
         result_dict = {
             'resource': 'chat_room',
 
@@ -157,13 +150,6 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
             'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
             'commit_id': self.commit_id,
         }
-
-        if detailed:
-            result_dict.update({
-                'latest_message_id': self.latest_message_id,
-                'latest_message_text': self.latest_message.message if self.latest_message else '',
-                'latest_event_id': self.latest_event_id,
-                'latest_event': self.latest_event.to_dict(), }, )
 
         return result_dict
 
@@ -192,10 +178,6 @@ class ChatParticipant(db_module.DefaultModelMixin, db.Model):
     profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
     profile: profile_module.Profile = db.relationship('Profile', primaryjoin=profile_id == profile_module.Profile.uuid)
 
-    # For the message read count support
-    last_read_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
-    last_read_message_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_CHAT_EVENT.uuid'), nullable=True)
-
     def to_dict(self):
         return {
             'resource': 'chat_participant',
@@ -207,9 +189,6 @@ class ChatParticipant(db_module.DefaultModelMixin, db.Model):
             'profile_id': self.profile_id,
             'profile_name': self.profile_name,
             'profile_info': self.profile.to_dict(),
-
-            'last_read_at': self.last_read_at,
-            'last_read_message_id': self.last_read_message_id,
 
             'created_at': self.created_at,
             'modified_at': self.modified_at,

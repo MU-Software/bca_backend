@@ -214,6 +214,8 @@ def get_journal_from_rowlist(
 
             modify_journal[user_id].changes.append(db_mod_data)
 
+    return modify_journal
+
 
 class UserDBJournalCreator:
     db: fsql.SQLAlchemy = None

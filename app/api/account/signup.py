@@ -91,8 +91,8 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     'default': {'index': 0, 'value': new_user.email, }
                 }
             }
-        })
-        new_profile.email = json.dumps({'email': new_user.email, })
+        }, ensure_ascii=False)
+        new_profile.email = json.dumps({'email': new_user.email, }, ensure_ascii=False)
         db.session.add(new_profile)
 
         try:
@@ -107,9 +107,9 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 raise err
 
         # Add profile id on user roles. This must be done after create opetaion to get UUID of profile
-        current_role: list = json.loads(new_user.role)
+        current_role: list = json.loads(new_user.role or '[]')
         current_role.append({'type': 'profile', 'id': new_profile.uuid})
-        new_user.role = json.dumps(current_role)
+        new_user.role = json.dumps(current_role, ensure_ascii=False)
         db.session.commit()
 
         mail_sent = True

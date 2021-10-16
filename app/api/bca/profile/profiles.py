@@ -73,13 +73,15 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_profile = profile_module.Profile()
             new_profile.user_id = target_user.uuid
             new_profile.name = req_body['name']
-            new_profile.data = req_body['data']
+            new_profile.data = json.dumps(req_body['data'], ensure_ascii=False)
             new_profile.description = req_body.get('description', None)
             new_profile.private = bool(req_body.get('private', True))
 
             # We must handle 'data' field specially. Parse data and modify proper columns
             # We need to get first item in columns
-            profile_data: dict[str, dict[str, typing.Any]] = json.loads(req_body['data'])
+            profile_data: dict[str, dict[str, typing.Any]] = req_body['data']
+            if isinstance(profile_data, str):
+                profile_data = json.loads(profile_data)
             filtered_profile_data: dict[str, str] = dict()
 
             listize_target_fields = ['email', 'phone', 'sns', 'address']
@@ -92,13 +94,13 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 field_data.sort(key=lambda i: i[1])
                 field_data = field_data[0]
 
-                filtered_profile_data[field] = json.dumps({field_data[0]: field_data[2], })
+                filtered_profile_data[field] = json.dumps({field_data[0]: field_data[2], }, ensure_ascii=False)
 
             # And set proper values on orm object
             editable_columns = ('email', 'phone', 'sns', 'address')
             filtered_data = {col: data for col, data in filtered_profile_data.items() if col in editable_columns}
             for column, data in filtered_data.items():
-                setattr(new_profile, column, data)
+                setattr(new_profile, column, json.dumps(data, ensure_ascii=False))
 
             # Add to db
             db.session.add(new_profile)
@@ -107,7 +109,7 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Add profile id on user roles. This must be done after create opetaion to get UUID of profile
             current_role: list = json.loads(target_user.role)
             current_role.append({'type': 'profile', 'id': new_profile.uuid})
-            target_user.role = json.dumps(current_role)
+            target_user.role = json.dumps(current_role, ensure_ascii=False)
             db.session.commit()
 
             # Revoke access token so that user renews their access token that includes all of his/her profile ids

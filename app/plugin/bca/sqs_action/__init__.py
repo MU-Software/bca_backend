@@ -99,7 +99,7 @@ class UserDBModifyTaskMessage:
         sqs_client = boto3.client('sqs')
         sqs_client.send_message(
             QueueUrl=flask.current_app.config.get('AWS_TASK_SQS_URL'),
-            MessageBody=json.dumps(self.to_dict(), default=utils.json_default),
+            MessageBody=json.dumps(self.to_dict(), default=utils.json_default, ensure_ascii=False),
             MessageGroupId='userdbmod1')
 
 

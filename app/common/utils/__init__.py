@@ -177,7 +177,7 @@ def BackendException(code=500, data='',
         'message': description,
         'data': data,
     }
-    body_json = json.dumps(body, indent=json_prettier)
+    body_json = json.dumps(body, indent=json_prettier, ensure_ascii=False)
 
     err = werkzeug.exceptions.HTTPException()
 

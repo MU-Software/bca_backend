@@ -1,5 +1,6 @@
 import flask
 import flask.views
+import json
 
 import app.common.utils as utils
 import app.api.helper_class as api_class
@@ -90,6 +91,7 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_card.profile_id = target_profile.uuid
             new_card.name = req_body['name']
             new_card.data = req_body['data']
+            new_card.preview_url = json.loads(req_body['data'])['image']
             new_card.private = req_body.get('private', True)
 
             db.session.add(new_card)

@@ -157,7 +157,8 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             'name': {'type': 'string', },
             'description': {'type': 'string', },
             'data': {'type': 'string', },
-            'private': {'type': 'boolean', }, })
+            'private': {'type': 'boolean', },
+            'can_annonymous_invite': {'type': 'boolean', }, })
     def patch(self, profile_id: int, req_header: dict, req_body: dict, access_token: jwt_module.AccessToken):
         '''
         description: Modify user's {profile_id} profile. This can be done only by the owner.
@@ -188,15 +189,15 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     message='프로필이 다른 기기에서 수정된 것 같습니다.\n동기화를 해 주세요.')
 
             # Modify this profile
-            editable_columns = ('name', 'description', 'data', 'private')
+            editable_columns = ('name', 'description', 'data', 'private', 'can_annonymous_invite')
             filtered_data = {col: field_val for col, field_val in req_body.items() if col in editable_columns}
             if not filtered_data:
                 return CommonResponseCase.body_empty.create_response()
             for column, field_val in filtered_data.items():
                 result_value = field_val
-                if not result_value:
+                if not isinstance(result_value, (bool, int)) and not result_value:
                     result_value = None
-                elif isinstance(result_value, dict):
+                elif isinstance(result_value, (dict, list)):
                     result_value = json.dumps(field_val, ensure_ascii=False)
 
                 setattr(target_profile, column, result_value)

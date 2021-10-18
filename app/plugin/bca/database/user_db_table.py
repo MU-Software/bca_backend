@@ -50,7 +50,7 @@ class Profile:
 
     column_names = [
         'uuid',
-        'name', 'description', 'data',
+        'name', 'description', 'data', 'image_url',
         'email', 'phone', 'sns', 'address', 'private',
         'commit_id', 'created_at', 'modified_at', 'deleted_at', 'why_deleted',
     ]
@@ -60,6 +60,7 @@ class Profile:
     name = sql.Column(sql.TEXT, nullable=False)  # Profile name shown in list or card
     description = sql.Column(sql.TEXT, nullable=True)  # Profile description
     data = sql.Column(sql.TEXT, nullable=False)  # Profile data (in json)
+    image_url = sql.Column(sql.TEXT, nullable=True)  # Profile image URL
     email = sql.Column(sql.TEXT, nullable=True)  # Main email of Profile
     phone = sql.Column(sql.TEXT, nullable=True)  # Main phone of Profile
     sns = sql.Column(sql.TEXT, nullable=True)  # Main SNS Account of profile

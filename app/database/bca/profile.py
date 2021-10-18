@@ -24,6 +24,7 @@ class Profile(db_module.DefaultModelMixin, db.Model):
     name = db.Column(db.String, nullable=False)  # Profile name shown in card
     description = db.Column(db.String, nullable=True)  # Profile description
     data = db.Column(db.String, nullable=False)  # Profile data (in json)
+    image_url = db.Column(db.String, nullable=True)  # Profile image URL
     email = db.Column(db.String, nullable=True)  # Main email of Profile
     phone = db.Column(db.String, nullable=True)  # Main phone of Profile
     address = db.Column(db.String, nullable=True)  # Main address of Profile

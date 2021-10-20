@@ -121,11 +121,12 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         for refresh_token in target_users_refreshtokens:
             if refresh_token.client_token:
                 try:
-                    title, body = None, None
+                    fcm_data = new_event.to_dict()
                     if new_event.event_type == ChatEventType.MESSAGE_POSTED:
-                        title, body = self.name, new_event.message
+                        fcm_data['title'] = self.name
+                        fcm_data['message'] = new_event.message
                     fcm_module.firebase_send_notify(
-                        title=title, body=body, data=new_event.to_dict(),
+                        data=fcm_data,
                         target_token=refresh_token.client_token)
                 except Exception as err:
                     print(utils.get_traceback_msg(err))

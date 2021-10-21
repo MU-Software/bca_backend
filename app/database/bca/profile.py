@@ -22,9 +22,11 @@ class Profile(db_module.DefaultModelMixin, db.Model):
                                                                 order_by='Profile.created_at.desc()'))
 
     name = db.Column(db.String, nullable=False)  # Profile name shown in card
+    team_name = db.Column(db.String, nullable=True)  # Profile's included organization name
     description = db.Column(db.String, nullable=True)  # Profile description
     data = db.Column(db.String, nullable=False)  # Profile data (in json)
     image_url = db.Column(db.String, nullable=True)  # Profile image URL
+
     email = db.Column(db.String, nullable=True)  # Main email of Profile
     phone = db.Column(db.String, nullable=True)  # Main phone of Profile
     address = db.Column(db.String, nullable=True)  # Main address of Profile
@@ -67,7 +69,10 @@ class Profile(db_module.DefaultModelMixin, db.Model):
 
             'uuid': self.uuid,
             'name': self.name,
+            'team_name': self.team_name,
             'description': self.description,
+            'image_url': self.image_url,
+
             'phone': self.phone,
             'email': self.email,
             'sns': self.sns,

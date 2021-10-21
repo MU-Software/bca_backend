@@ -155,6 +155,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @api_class.RequestBody(
         optional_fields={
             'name': {'type': 'string', },
+            'team_name': {'type': 'string', },
             'description': {'type': 'string', },
             'data': {'type': 'string', },
             'image_url': {'type': 'string', },
@@ -190,7 +191,10 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     message='프로필이 다른 기기에서 수정된 것 같습니다.\n동기화를 해 주세요.')
 
             # Modify this profile
-            editable_columns = ('name', 'description', 'data', 'image_url', 'private', 'can_annonymous_invite')
+            editable_columns = (
+                'name', 'team_name',
+                'description', 'data', 'image_url',
+                'private', 'can_annonymous_invite')
             filtered_data = {col: field_val for col, field_val in req_body.items() if col in editable_columns}
             if not filtered_data:
                 return CommonResponseCase.body_empty.create_response()

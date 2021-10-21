@@ -1,6 +1,7 @@
 import flask
 import flask.views
 import sqlalchemy as sql
+import sqlalchemy.sql as sql_sql
 import json
 
 import app.common.utils as utils
@@ -111,16 +112,18 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # then we need to send that room id, rather than creating new room.
             if len(target_profiles_id_list) == 1:
                 # We can get room id by using this strategy.
-                # TODO: This query will be slow, need to be optimized
-                target_room_id = db.session.query(chat_module.ChatParticipant.room_id)\
-                    .filter(sql.or_(
-                        chat_module.ChatParticipant.user_id == target_profiles_id_list[0],
-                        chat_module.ChatParticipant.user_id == requested_profile_id, ))\
-                    .filter(sql.func.count(chat_module.ChatParticipant.room_id) == 2)\
-                    .distinct().first()
-                if target_room_id:
+                # TODO: This query isn't working. FIX THIS
+                # TODO: This query might be slow, need to be optimized
+                distinct_room_id_query = sql.distinct(chat_module.ChatParticipant.room_id)
+                queried_room_id = db.session.query(distinct_room_id_query)\
+                    .filter(
+                        chat_module.ChatParticipant.user_id.in_((
+                            target_profiles_id_list[0],
+                            requested_profile_id, )))\
+                    .having(sql_sql.func.count(distinct_room_id_query) == 2).first()
+                if queried_room_id:
                     target_room = db.session.query(chat_module.ChatRoom)\
-                        .filter(chat_module.ChatRoom.uuid == target_room_id).first()
+                        .filter(chat_module.ChatRoom.uuid == queried_room_id).first()
                     return ResourceResponseCase.resource_conflict.create_response(
                         message='이미 1:1 채팅방이 존재합니다.', data={'room': target_room.to_dict(), }, )
 

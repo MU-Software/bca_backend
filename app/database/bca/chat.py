@@ -133,7 +133,7 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
 
         return new_event
 
-    def to_dict(self):
+    def to_dict(self, include_events: bool = False):
         result_dict = {
             'resource': 'chat_room',
 
@@ -151,6 +151,28 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
             'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
             'commit_id': self.commit_id,
         }
+
+        if self.participants:
+            result_dict['participants'] = list()
+            for participant in self.participants:
+                result_dict['participants'].append(participant.to_dict())
+
+        if include_events:
+            query_limit_time = datetime.datetime.utcnow().replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+                tzinfo=utils.UTC, ) - datetime.timedelta(days=7)
+
+            chatroom_events = db.session.query(ChatEvent)\
+                .filter(ChatEvent.room_id == self.uuid)\
+                .filter(ChatEvent.created_at >= query_limit_time)\
+                .all()
+            if chatroom_events:
+                result_dict['events'] = list()
+                for event in chatroom_events:
+                    result_dict['events'].append(event.to_dict())
 
         return result_dict
 

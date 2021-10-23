@@ -47,7 +47,7 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     message='참여 중인 채팅방이 없습니다.')
 
             return ResourceResponseCase.multiple_resources_found.create_response(
-                data={'chat_rooms': [r.to_dict() for r in participanted_chatroom], }, )
+                data={'chat_rooms': [r.to_dict(include_events=True) for r in participanted_chatroom], }, )
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

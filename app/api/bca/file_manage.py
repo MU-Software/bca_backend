@@ -33,7 +33,7 @@ class FileRoute(flask.views.MethodView, api_class.MethodViewMixin):
             - server_error
         '''
         try:
-            if filename:
+            if not filename:
                 return CommonResponseCase.http_forbidden.create_response()
 
             filepath = pt.Path.cwd() / 'user_content' / 'uploads'
@@ -42,7 +42,9 @@ class FileRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ResourceResponseCase.resource_not_found.create_response()
 
             request_content_type: str = flask.request.accept_mimetypes
-            if 'application/json' in request_content_type:
+            if 'image/*' in request_content_type:
+                return flask.send_file(filepath)
+            elif 'application/json' in request_content_type:
                 return ResourceResponseCase.resource_created.create_response(
                     data={'file': {
                         'resource': 'file',
@@ -68,8 +70,6 @@ class FileRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if filename:
                 return CommonResponseCase.http_forbidden.create_response()
 
-            api_ver = flask.current_app.config.get('RESTAPI_VERSION')
-
             # check if the post request has the file part
             if 'file' not in flask.request.files:
                 return CommonResponseCase.body_empty.create_response()
@@ -89,11 +89,13 @@ class FileRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 fileext = filename.split('.')[-1].lower()
                 file.save(filepath / f'{result_filename}.{fileext}')
 
-            return ResourceResponseCase.resource_created.create_response(
-                data={'file': {
-                    'resource': 'file',
-                    'size': file.content_length,
-                    'url': f'/api/{api_ver}/uploads/{filename}', }, }, )
+                return ResourceResponseCase.resource_created.create_response(
+                    data={'file': {
+                        'resource': 'file',
+                        'size': file.content_length,
+                        'url': f'/uploads/{result_filename}.{fileext}', }, }, )
+
+            return ResourceResponseCase.resource_forbidden.create_response()
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

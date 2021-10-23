@@ -11,9 +11,9 @@ bca_resource_route.update(card_route_collection.resource_route)
 bca_resource_route.update(chat_route_collection.resource_route)
 bca_resource_route.update(sync_route_collection.resource_route)
 bca_resource_route.update({
-    'uploads/<string:filename>': {
+    '/uploads/<string:filename>': {
         'view_func': file_manage_route.FileRoute,
-        'base_path': '/uploads/',
+        'base_path': '/uploads',
         'defaults': {'filename': None},
     },
 })

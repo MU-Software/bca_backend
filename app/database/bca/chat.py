@@ -260,6 +260,7 @@ class ChatEvent(db_module.DefaultModelMixin, db.Model):
 
             'room_id': self.room_id,
             'caused_by_profile_id': self.caused_by_profile_id,
+            'caused_by_participant_id': self.caused_by_participant_id,
             'encrypted': self.encrypted,
 
             'event_index': self.event_index,

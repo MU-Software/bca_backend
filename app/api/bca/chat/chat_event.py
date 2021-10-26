@@ -54,7 +54,7 @@ class ChatEventRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     data={'resource_name': ['chat_event', ]})
 
             return ResourceResponseCase.multiple_resources_found.create_response(
-                data={'events': [e.to_dict() for e in target_event]})
+                data={'chat_events': [e.to_dict() for e in target_event]})
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

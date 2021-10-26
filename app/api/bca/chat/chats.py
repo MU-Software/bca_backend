@@ -170,6 +170,7 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # If all profiles were failed to invite
             if all(map(lambda x: not x.success, result)):
+                db.session.delete(creator_as_participant)
                 db.session.delete(new_chatroom)
                 db.session.commit()
                 return ResourceResponseCase.resource_forbidden.create_response(

@@ -15,6 +15,51 @@ db = db_module.db
 
 class ChatEventRoute(flask.views.MethodView, api_class.MethodViewMixin):
     @api_class.RequestHeader(
+        required_fields={'X-Profile-Id': {'type': 'integer', }, },
+        auth={api_class.AuthType.Bearer: True, })
+    def get(self, room_id: int,
+            req_header: dict,
+            access_token: jwt_module.AccessToken,
+            event_id: typing.Optional[int] = None):
+        try:
+            if event_id:
+                return CommonResponseCase.http_not_found.create_response()
+
+            requested_profile_id: int = utils.safe_int(req_header['X-Profile-Id'])
+            if str(requested_profile_id) not in access_token.role:
+                return ResourceResponseCase.resource_forbidden.create_response(
+                    message='접속하고 계신 프로필은 본인의 프로필이 아닙니다.')
+
+            target_room = db.session.query(chat_module.ChatRoom)\
+                .filter(chat_module.ChatRoom.uuid == room_id)\
+                .first()
+            if not target_room:
+                return ResourceResponseCase.resource_not_found.create_response(
+                    data={'resource_name': ['chat_room', ]})
+
+            target_chatroom_participant = db.session.query(chat_module.ChatParticipant)\
+                .filter(chat_module.ChatParticipant.room_id == target_room.uuid)\
+                .filter(chat_module.ChatParticipant.profile_id == requested_profile_id)\
+                .first()
+            if not target_chatroom_participant:
+                return ResourceResponseCase.resource_forbidden.create_response(
+                    message='현재 해당 채팅방에 입장한 상태가 아닙니다.')
+
+            target_event = db.session.query(chat_module.ChatEvent)\
+                .filter(chat_module.ChatEvent.room_id == target_room.uuid)\
+                .order_by(chat_module.ChatEvent.uuid)\
+                .all()
+            if not target_event:
+                return ResourceResponseCase.resource_not_found.create_response(
+                    data={'resource_name': ['chat_event', ]})
+
+            return ResourceResponseCase.multiple_resources_found.create_response(
+                data={'events': [e.to_dict() for e in target_event]})
+
+        except Exception:
+            return CommonResponseCase.server_error.create_response()
+
+    @api_class.RequestHeader(
         required_fields={'X-Profile-Id': {'type': 'integer'}, },
         auth={api_class.AuthType.Bearer: True, })
     @api_class.RequestBody(required_fields={'message': {'type': 'string'}})

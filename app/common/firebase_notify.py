@@ -26,8 +26,8 @@ def firebase_send_notify(title: str = None, body: str = None, data: dict = None,
         tmp_dict[str(k)] = safe_str(v)
     data = tmp_dict
 
+    notification = None
     if any((title, body)):
-        notification = None
         title = str(title) or ''
         body = str(body) or ''
         notification = messaging.Notification(title=title, body=body)

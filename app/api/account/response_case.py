@@ -7,14 +7,24 @@ import app.api.helper_class as api_class
 
 server_name = os.environ.get('SERVER_NAME')
 restapi_version = os.environ.get('RESTAPI_VERSION')
+https_enable = os.environ.get('HTTPS_ENABLE', True)
+cookie_samesite = ('None' if https_enable else 'Lax') if restapi_version == 'dev' else 'strict'
 
 refresh_token_remover_cookie = utils.delete_cookie(
                                     name='refresh_token',
                                     path=f'/api/{restapi_version}/account',
                                     domain=server_name if restapi_version != 'dev' else None,
-                                    samesite='None' if restapi_version == 'dev' else 'strict',
-                                    secure=True)
+                                    samesite=cookie_samesite,
+                                    secure=https_enable)
 delete_refresh_token: tuple[str, str] = ('Set-Cookie', refresh_token_remover_cookie)
+
+admin_token_remover_cookie = utils.delete_cookie(
+                                    name='admin_token',
+                                    path=f'/api/{restapi_version}/admin',
+                                    domain=server_name if restapi_version != 'dev' else None,
+                                    samesite=cookie_samesite,
+                                    secure=https_enable)
+delete_admin_token: tuple[str, str] = ('Set-Cookie', admin_token_remover_cookie)
 
 
 @dataclasses.dataclass
@@ -43,7 +53,7 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='User is not signed in.',
         code=401, success=False,
         public_sub_code='user.not_signed_in',
-        header=delete_refresh_token)
+        header=[delete_refresh_token, delete_admin_token, ])
 
     # Sign Up related
     user_signed_up = api_class.Response(  # User signing up success
@@ -65,12 +75,12 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         public_sub_code='user.safe_to_use')
     user_already_used = api_class.Response(
         description='Someone is already using user-wanted nick/id/email address. Try another one.',
-        code=401, success=False,
+        code=409, success=False,
         public_sub_code='user.already_used',
         data={'duplicate': ['', ]})
     user_info_mismatch = api_class.Response(
         description='We can\'t do what you request because the data you sent isn\'t correct.',
-        code=401, success=False,
+        code=409, success=False,
         public_sub_code='user.info_mismatch',
         data={'fields': ['', ]})
 
@@ -102,16 +112,42 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='User signed out.',
         code=200, success=True,
         public_sub_code='user.sign_out',
-        header=delete_refresh_token)
+        header=[delete_refresh_token, delete_admin_token, ])
 
-    # Account deactivate
+    # Password reset related
+    password_reset_mail_sent = api_class.Response(
+        description='Tell user that we successfully sent mail that can reset user\'s password.\n'
+                    'Notes that even though there aren\'t any user with requested mail,\n'
+                    'this response will be returned to prevent attacker from finding out if a user has joined.',
+        code=201, success=True,
+        public_sub_code='password.reset_mail_sent')
+    password_reset_mail_send_failed = api_class.Response(
+        description='Failed to send user password reset mail',
+        code=409, success=False,
+        public_sub_code='password.reset_mail_send_fail',
+        data={'reason': ''})
+
+    # Password change related
+    password_changed = api_class.Response(
+        description='Successfully changed user\'s password.',
+        code=200, success=True,
+        public_sub_code='password.changed')
+    password_change_failed = api_class.Response(
+        description='Could not change user password.\n'
+                    'Notes that if original password is incorrect, '
+                    'then result will be user.wrong_password, not password.change_failed.',
+        code=400, success=False,
+        public_sub_code='password.change_failed',
+        data={'reason': ''})
+
+    # Account deactivation
     user_deactivate_success = api_class.Response(
         description='Successfully deactivated a account. This is different with user_deactivated.',
         code=204, success=True,
         public_sub_code='user.deactivate_success',
         message='Goodbye, Dear Friend!')
 
-    # Email auth related
+    # Email auth related (JSON)
     email_token_not_given = api_class.Response(
         description='Email token is not provided on URL',
         code=400, success=False,
@@ -138,6 +174,28 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         public_sub_code='email.success',
         message='Email Action done successfully.')
 
+    # Email auth related (HTML)
+    email_token_not_given_html = api_class.Response(
+        description='Email token is not provided on URL',
+        code=400, success=False,
+        content_type='text/html', template_path='email_action/error/email_token_not_given.html')
+    email_expired_html = api_class.Response(
+        description='Email is expired.',
+        code=410, success=False,
+        content_type='text/html', template_path='email_action/error/email_token_expired.html')
+    email_invalid_html = api_class.Response(
+        description='Token in Email is invalid.',
+        code=410, success=False,
+        content_type='text/html', template_path='email_action/error/email_token_invalid.html')
+    email_not_found_html = api_class.Response(
+        description='Token in Email is not found on DB.',
+        code=404, success=False,
+        content_type='text/html', template_path='email_action/error/email_token_not_found.html')
+    email_success_html = api_class.Response(
+        description='Email Action done successfully.',
+        code=200, success=True,
+        content_type='text/html', template_path='email_action/email_action_success.html')
+
     # Access Token related
     access_token_refreshed = api_class.Response(  # Access token refreshing success
         description='Access token refreshed.',
@@ -158,9 +216,9 @@ class AccountResponseCase(api_class.ResponseCaseCollector):
         description='Refresh token is invalid. Please re-signin.',
         code=401, success=False,
         public_sub_code='refresh_token.invalid',
-        header=[delete_refresh_token, ])
+        header=[delete_refresh_token, delete_admin_token, ])
     refresh_token_expired = api_class.Response(
         description='Refresh token is expired. Please re-signin.',
         code=401, success=False,
         public_sub_code='refresh_token.expired',
-        header=[delete_refresh_token, ])
+        header=[delete_refresh_token, delete_admin_token, ])

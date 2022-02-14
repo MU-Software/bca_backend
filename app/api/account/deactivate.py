@@ -13,13 +13,11 @@ from app.api.account.response_case import AccountResponseCase
 
 db = db_module.db
 redis_db = db_module.redis_db
+RedisKeyType = db_module.RedisKeyType
 
 
 class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @api_class.RequestHeader(
-        required_fields={},
-        auth={api_class.AuthType.RefreshToken: True, }
-    )
+    @api_class.RequestHeader(auth={api_class.AuthType.RefreshToken: True, })
     @api_class.RequestBody(
         required_fields={
             'email': {'type': 'string', },
@@ -55,7 +53,7 @@ class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin
 
         try:
             # Revoke all user tokens
-            target_tokens = jwt_module.RefreshToken.query\
+            target_tokens = db.session.query(jwt_module.RefreshToken)\
                                 .filter(jwt_module.RefreshToken.user == target_user.uuid)\
                                 .all()
             if not target_tokens:
@@ -64,14 +62,16 @@ class AccountDeactivationRoute(flask.views.MethodView, api_class.MethodViewMixin
                 return CommonResponseCase.server_error.create_response()
             for token in target_tokens:
                 # TODO: set can set multiple at once, so use that method instead
-                redis_db.set('refresh_revoke=' + str(token.jti), 'revoked', datetime.timedelta(weeks=2))
+                redis_key = RedisKeyType.TOKEN_REVOKE.as_redis_key(token.jti)
+                redis_db.set(redis_key, 'revoked', datetime.timedelta(weeks=2))
                 db.session.delete(token)
 
-            target_user.deactivated_at = datetime.datetime.utcnow().replace(tz=utils.UTC)
+            target_user.deactivated_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
             target_user.why_deactivated = 'ACCOUNT_LOCKED::USER_SELF_LOCKED'
             target_user.deactivated_by_orm = target_user
             db.session.commit()
         except Exception:
+            db.session.rollback()
             return CommonResponseCase.server_error.create_response()
 
         return AccountResponseCase.user_deactivate_success.create_response()

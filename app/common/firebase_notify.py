@@ -3,42 +3,51 @@ from firebase_admin import credentials
 from firebase_admin import messaging
 import flask
 
+import app.common.utils as utils
 
-def firebase_send_notify(title: str, body: str, data: dict = None,
-                         topic: str = 'all', target_token: str = None):
-    cred = credentials.Certificate(flask.current_app.config.get('FIREBASE_CERTIFICATE'))
-    default_app = firebase_admin.initialize_app(cred)  # noqa
 
-    # This registration token comes from the client FCM SDKs.
-    # registration_token = flask.current_app.config.get('FIREBASE_REGISTERATION_TOKEN')
+def firebase_send_notify(title: str = None, body: str = None, data: dict = None,
+                         topic: str = None, target_token: str = None):
+    try:
+        cred = credentials.Certificate(flask.current_app.config.get('FIREBASE_CERTIFICATE'))
+        default_app = firebase_admin.initialize_app(cred)  # noqa
+    except ValueError:
+        # default_app is already initialized.
+        pass
 
-    data = data if data else {}
+    if not any((title, body, data)):
+        raise ValueError('At least one of (title, body)|data must be set')
 
-    # See documentation on defining a message payload.
+    data = data if data else {'click_action': 'FLUTTER_NOTIFICATION_CLICK', }
+    # all keys and values in data must be a string.
+    tmp_dict = dict()
+    safe_str = utils.ignore_exception(Exception, '')(str)
+    for k, v in data.items():
+        tmp_dict[str(k)] = safe_str(v)
+    data = tmp_dict
+
+    notification = None
+    if any((title, body)):
+        title = str(title) or ''
+        body = str(body) or ''
+        notification = messaging.Notification(title=title, body=body)
+
     message = messaging.Message(
+        data=data,
+        notification=notification,
+
         # android=messaging.AndroidConfig(
         #     ttl=datetime.timedelta(seconds=3600),
         #     priority='normal',
         # ),
-        android=None,
-        apns=None,
-        webpush=None,
+        # apns=None,
+        # webpush=None,
 
-        data={
-            'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-        },
-        notification=messaging.Notification(title=title, body=body),
-        # notification=None,
-
-        fcm_options=None,
-
-        topic=topic,
         token=target_token,
+        topic=topic,
+        # fcm_options=None,
         # condition=None,
     )
 
-    # Send a message to the device corresponding to the provided
-    # registration token.
     response = messaging.send(message)
-    # Response is a message ID string.
-    print('Successfully sent message:', response)
+    print('Successfully sent message:', response)  # Response is a message ID string.

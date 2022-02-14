@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" content />
-    <title>DEVCO SignUp/Login testbed</title>
+    <title>FROST SignUp/Login testbed</title>
     <link rel="stylesheet" href="https://unpkg.com/mvp.css">
     <style>
       :root {
@@ -42,7 +42,7 @@
         /* I don't know why, I don't want to know why,
            I shouldn't have to wonder why, but for whatever reason
            this stupid card isn't laying out correctly
-           unless we do this terribleness*/
+           unless we do this terribleness */
         height: calc(100vh - 3.4em - 48px);
         /* width: calc((var(--width-card) + 72px) * 3); */
       }
@@ -115,8 +115,8 @@
         text-align: left;
       }
     </style>
-    <script type="text/javascript" src="/api/debug/src/json-viewer.js"></script>
-    <link rel="stylesheet" type="text/css" href="/api/debug/src/json-viewer.css">
+    <script type="text/javascript" src="/api/dev/debug/src/json-viewer.js"></script>
+    <link rel="stylesheet" type="text/css" href="/api/dev/debug/src/json-viewer.css">
     <script>
       function uuidv4() {
         return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
@@ -156,7 +156,7 @@
             isSuccess = 'SUCCESS!';
             if (isAuth) {
               response = JSON.parse(xhr.response);
-              accessToken = response.data.access_token.token;
+              accessToken = response.data.user.access_token.token;
             }
           } else {
             isSuccess = 'FAILED!';
@@ -234,6 +234,7 @@
       var loginJsonViewer = new JSONViewer();
       var signoutJsonViewer = new JSONViewer();
       var accessRefreshJsonViewer = new JSONViewer();
+      var passwordResetJsonViewer = new JSONViewer();
     </script>
   </head>
   <body>
@@ -360,6 +361,35 @@
 
           <script>
             document.querySelector("#signout_request_result_json").appendChild(signoutJsonViewer.getContainer());
+          </script>
+        </aside>
+
+        <aside class="item">
+          <h3>비밀번호 초기화</h3>
+          <form id="pwreset_form" action="/api/dev/account/reset-password" method="post" >
+            <label for="pwreset_username">이메일</label>
+            <input
+              id="pwreset_email"
+              name="email"
+              type="email"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
+              dir="auto" />
+
+            <input
+              id="pwreset_submit"
+              type="submit"
+              onclick="simpleFormPostRequest('pwreset', passwordResetJsonViewer, false); return false;" />
+          </form>
+
+          <h5>Request Result(JSON)</h5>
+          <div id="pwreset_request_result_json"></div>
+          <h5>Request Result(PRE)</h5>
+          <pre id="pwreset_request_result_pre"></pre>
+
+          <script>
+            document.querySelector("#pwreset_request_result_json").appendChild(passwordResetJsonViewer.getContainer());
           </script>
         </aside>
 

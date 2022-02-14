@@ -17,13 +17,6 @@ routes_cache: dict[str, tuple[str, typing.Any]] = dict()
 response_cases_cache: dict[str, api_class.Response] = dict()
 
 
-# FROST was the original name of this project.
-# "F"lask based
-# "R"ESTful api
-# "O"riented
-# "S"ource
-# "T"emplate
-# I know... It sucks, I just wanted to name this as "FROST"...
 class FrostRoutePlugin(apispec.BasePlugin):
     def path_helper(self, path: str, operations: typing.OrderedDict, *, view, app: flask.Flask = None, **kwargs):
         app: flask.Flask = app or flask.current_app
@@ -65,19 +58,16 @@ class FrostRoutePlugin(apispec.BasePlugin):
             for resp in doc_resps:
                 resp_case_obj: api_class.Response = response_cases_cache[resp]
                 if resp_case_obj.code not in openapi_resp:
-                    openapi_resp[resp_case_obj.code] = {
-                        'description': '',
-                        'content': {
-                            'application/json': {
-                                'schema': {
-                                    'oneOf': [
+                    # Add default structure on this response code as this is the first oneOf component.
+                    openapi_resp[resp_case_obj.code] = {'description': '', 'content': {}, }
+                # Create short reference to openapi_resp[resp_case_obj.code] to shorten the code
+                resp_case_code_content = openapi_resp[resp_case_obj.code]['content']
 
-                                    ]
-                                }
-                            }
-                        }
-                    }
-                openapi_resp[resp_case_obj.code]['content']['application/json']['schema']['oneOf'].append(
+                if resp_case_obj.content_type not in resp_case_code_content:
+                    # Add default structure for this content type as this is the first oneOf component.
+                    resp_case_code_content[resp_case_obj.content_type] = {'schema': {'oneOf': [], }, }
+
+                resp_case_code_content[resp_case_obj.content_type]['schema']['oneOf'].append(
                     {'$ref': f'#/components/schemas/{resp}'}
                 )
                 response_case_description = f'### {resp}: {resp_case_obj.description}  \n'
@@ -140,13 +130,16 @@ def create_openapi_doc():
 
         for resp_case_name, resp_case_obj in response_cases.items():
             response_cases_cache[resp_case_name] = resp_case_obj
-            spec.components.schema(
-                name=resp_case_name,
-                component={
-                    'type': 'object',
-                    'properties': resp_case_obj.to_openapi_obj(),
-                }
-            )
+            try:
+                # Support apispec 5.0
+                # https://github.com/marshmallow-code/apispec/pull/696
+                spec.components.schema(
+                    component_id=resp_case_name,
+                    component=resp_case_obj.to_openapi_obj(), )
+            except Exception:
+                spec.components.schema(
+                    name=resp_case_name,
+                    component=resp_case_obj.to_openapi_obj(), )
 
     # Register all routes
     route_classes: dict = {cls.__name__: cls for cls in api_class.MethodViewMixin._subclasses}
@@ -157,7 +150,6 @@ def create_openapi_doc():
 
         if route_path_split[1] == restapi_version and route_path_split[2] not in ('debug', 'admin'):
             route_view_class = route_classes[rule.endpoint]
-            # for method in rule.methods:
             routes_cache[route_path] = (str(rule), route_view_class)
             spec.path(path=route_path, view=route_view_class)
 

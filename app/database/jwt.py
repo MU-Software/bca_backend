@@ -11,17 +11,19 @@ import typing
 import app.common.utils as utils
 import app.database as db_module
 import app.database.user as user_module
-import app.database.profile as profile_module
 
 db = db_module.db
 redis_db: redis.StrictRedis = db_module.redis_db
+RedisKeyType = db_module.RedisKeyType
 
 # Refresh token will expire after 61 days
 refresh_token_valid_duration: datetime.timedelta = datetime.timedelta(days=61)
 # Access token will expire after 1 hour
 access_token_valid_duration: datetime.timedelta = datetime.timedelta(hours=1)
+# Admin token will expire after 12 hours
+admin_token_valid_duration: datetime.timedelta = datetime.timedelta(hours=12)
 
-allowed_claim_in_jwt: list[str] = ['api_ver', 'iss', 'exp', 'user', 'sub', 'jti', 'role', 'profile_id']
+allowed_claim_in_jwt: list[str] = ['api_ver', 'iss', 'exp', 'user', 'sub', 'jti', 'role']
 
 
 class TokenBase:
@@ -40,7 +42,6 @@ class TokenBase:
     # Private Claim
     user: int = -1  # Audience, User, Token holder
     role: str = ''
-    profile_id: list[int] = []
     # data: dict
 
     def create_token(self, key: str, algorithm: str = 'HS256') -> str:
@@ -71,7 +72,6 @@ class TokenBase:
             if attr_name in allowed_claim_in_jwt:
                 result_payload[attr_name] = attr_value
 
-        print(result_payload)
         return jwt.encode(payload=result_payload, key=key, algorithm=algorithm)
 
     @classmethod
@@ -122,9 +122,10 @@ class AccessToken(TokenBase):
         new_token = super().create_token(key, algorithm=algorithm)
 
         # If new token safely issued, then remove revoked history
-        redis_result = redis_db.get('refresh_revoke='+str(self.jti))
+        redis_key = RedisKeyType.TOKEN_REVOKE.as_redis_key(self.jti)
+        redis_result = redis_db.get(redis_key)
         if redis_result and redis_result == b'revoked':
-            redis_db.delete('refresh_revoke=' + str(self.jti))
+            redis_db.delete(redis_key)
 
         return new_token
 
@@ -133,9 +134,9 @@ class AccessToken(TokenBase):
         parsed_token = super().from_token(jwt_input, key, algorithm)
 
         # Check if token's revoked
-        redis_result = redis_db.get('refresh_revoke=' + str(parsed_token.jti))
+        redis_key = RedisKeyType.TOKEN_REVOKE.as_redis_key(parsed_token.jti)
+        redis_result = redis_db.get(redis_key)
         if redis_result and redis_result == b'revoked':
-            redis_db.delete('refresh_revoke=' + str(parsed_token.jti))
             raise jwt.exceptions.InvalidTokenError('This token was revoked')
 
         return parsed_token
@@ -162,13 +163,8 @@ class AccessToken(TokenBase):
         new_token.user = refresh_token.user
         # Access token's JTI must be same with Refresh token's.
         new_token.jti = refresh_token.jti
-        new_token.role = refresh_token.role
-        new_token.profile_id = db.session.query(profile_module.Profile.uuid)\
-            .filter(profile_module.Profile.locked_at == None)\
-            .filter(profile_module.Profile.deleted_at == None)\
-            .filter(profile_module.Profile.user_id == refresh_token.user)\
-            .all()  # noqa
-        new_token.profile_id = [profile_id[0] for profile_id in new_token.profile_id]
+        # role field must be refreshed from TB_USER
+        new_token.role = refresh_token.usertable.role
 
         return new_token
 
@@ -254,47 +250,60 @@ class RefreshToken(TokenBase, db.Model, db_module.DefaultModelMixin):
 
         if self.jti and self.jti <= -1:
             self.jti = None
-            db_module.db.session.add(self)
+            db.session.add(self)
 
         try:
-            db_module.db.session.commit()
+            db.session.commit()
         except Exception:
-            db_module.db.session.rollback()
+            db.session.rollback()
             raise
 
         return super().create_token(key, algorithm)
 
 
-def get_account_data() -> typing.Union[None, bool, AccessToken]:
-    '''
-    return case:
-        if None: Token not available
-        if False: Token must be re-issued
-        else: Token Object
-    '''
-    try:
-        access_token_cookie = flask.request.cookies.get('access_token', '')
-        if not access_token_cookie:
-            return None
+class AdminToken(TokenBase):
+    # Registered Claim
+    sub: str = 'Admin'
 
-        try:
-            access_token = AccessToken.from_token(
-                access_token_cookie,
-                flask.current_app.config.get('SECRET_KEY'))
-        except jwt.exceptions.ExpiredSignatureError:
-            return False
-        except jwt.exceptions.InvalidTokenError as err:
-            if err.message == 'This token was revoked':
-                return False
-            return None
-        except Exception:
-            return None
-        if not access_token:
-            return None
+    _refresh_token: 'RefreshToken' = None
 
-        return access_token
-    except Exception:
-        return None
+    @classmethod
+    def from_token(cls, jwt_input: str, key: str, algorithm: str = 'HS256') -> 'AccessToken':
+        parsed_token = super().from_token(jwt_input, key, algorithm)
+
+        # Check if token's revoked
+        redis_key = RedisKeyType.TOKEN_REVOKE.as_redis_key(parsed_token.jti)
+        redis_result = redis_db.get(redis_key)
+        if redis_result and redis_result == b'revoked':
+            raise jwt.exceptions.InvalidTokenError('This token was revoked')
+
+        return parsed_token
+
+    @classmethod
+    def from_refresh_token(cls, refresh_token: 'RefreshToken'):
+        # Check refresh token exp
+        current_time = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
+
+        if type(refresh_token.exp) == int:
+            token_exp_time = datetime.datetime.fromtimestamp(refresh_token.exp, utils.UTC)
+        else:
+            if refresh_token.exp:
+                token_exp_time = refresh_token.exp.replace(tzinfo=utils.UTC)
+            else:
+                token_exp_time = None
+        if (not token_exp_time) or (token_exp_time < current_time):
+            raise jwt.exceptions.ExpiredSignatureError('Refresh token has reached expiration time')
+
+        new_token = AdminToken()
+        new_token._refresh_token = refresh_token
+        new_token.exp = datetime.datetime.utcnow().replace(microsecond=0)  # Drop microseconds
+        new_token.exp += admin_token_valid_duration
+        new_token.user = refresh_token.user
+        # Admin token's JTI must be same with Refresh token's.
+        new_token.jti = refresh_token.jti
+        new_token.role = refresh_token.usertable.role
+
+        return new_token
 
 
 def create_login_data(user_data: user_module.User,
@@ -303,6 +312,9 @@ def create_login_data(user_data: user_module.User,
                             -> tuple[list[tuple[str, str]], dict[str, str]]:
     restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
     server_name = flask.current_app.config.get('SERVER_NAME')
+    https_enable = flask.current_app.config.get('HTTPS_ENABLE', True)
+    cookie_samesite = ('None' if https_enable else 'Lax') if restapi_version == 'dev' else 'strict'
+
     response_header: list[tuple[str, str]] = list()
     response_data: dict[str, dict[str, str]] = dict()
 
@@ -317,22 +329,33 @@ def create_login_data(user_data: user_module.User,
         domain=server_name if restapi_version != 'dev' else None,
         path=f'/api/{refresh_token.api_ver}/account',
         expires=utils.cookie_datetime(refresh_token.exp),
-        samesite='None' if restapi_version == 'dev' else 'strict',
-        secure=True)
+        samesite=cookie_samesite,
+        secure=https_enable)
     response_header.append(('Set-Cookie', refresh_token_cookie))
+    response_data['refresh_token'] = {'exp': refresh_token.exp, }
 
     access_token = AccessToken.from_refresh_token(refresh_token)
     access_token_jwt = access_token.create_token(key+csrf_token, algorithm, True)
+    response_data['access_token'] = {
+        'exp': refresh_token.exp,
+        'token': access_token_jwt,
+    }
 
-    response_data.update({
-        'refresh_token': {
-            'exp': refresh_token.exp
-        },
-        'access_token': {
-            'token': access_token_jwt,
-            'exp': access_token.exp,
-        },
-    })
+    if refresh_token.role and 'admin' in refresh_token.role:
+        # This user is admin, so we need to issue admin token and send this with cookie.
+        admin_token = AdminToken.from_refresh_token(refresh_token)
+        admin_token_jwt = admin_token.create_token(key)
+        admin_token_cookie = utils.cookie_creator(
+            name='admin_token',
+            data=admin_token_jwt,
+            domain=server_name if restapi_version != 'dev' else None,
+            path=f'/api/{refresh_token.api_ver}/admin',
+            expires=utils.cookie_datetime(refresh_token.exp),
+            samesite=cookie_samesite,
+            secure=https_enable)
+        response_header.append(('Set-Cookie', admin_token_cookie))
+        response_data['admin_token'] = {'exp': admin_token.exp, }
+
     return response_header, response_data
 
 
@@ -342,15 +365,13 @@ def refresh_login_data(refresh_token_jwt: str,
                             -> tuple[list[tuple[str, str]], dict[str, str]]:
     restapi_version = flask.current_app.config.get('RESTAPI_VERSION')
     server_name = flask.current_app.config.get('SERVER_NAME')
+    https_enable = flask.current_app.config.get('HTTPS_ENABLE', True)
+    cookie_samesite = ('None' if https_enable else 'Lax') if restapi_version == 'dev' else 'strict'
+
     response_header: list[tuple[str, str]] = list()
     response_data: dict[str, dict[str, str]] = dict()
 
     refresh_token = RefreshToken.from_token(refresh_token_jwt, key)
-
-    # Check if client token is same.
-    # client_token must be None if user didn't give any client token while sign in
-    if refresh_token.client_token != client_token:
-        raise jwt.exceptions.InvalidTokenError('Client token mismatch')
 
     # Check device type/OS/browser using User-Agent.
     # We'll refresh token only if it's same with db records
@@ -390,26 +411,44 @@ def refresh_login_data(refresh_token_jwt: str,
                 domain=server_name if restapi_version != 'dev' else None,
                 path=f'/api/{refresh_token.api_ver}/account',
                 expires=utils.cookie_datetime(refresh_token.exp),
-                samesite='None' if restapi_version == 'dev' else 'strict',
-                secure=True)
+                samesite=cookie_samesite,
+                secure=https_enable)
 
             response_header.append(('Set-Cookie', refresh_token_cookie))
         except Exception:
             # It's OK to ignore error while re-issueing refresh token
-            pass
+            db.session.rollback()
+        finally:
+            # We need to send refresh token expiration date anyway
+            response_data['refresh_token'] = {'exp': refresh_token.exp, }
+
+    # If client requests token change, then we need to commit this on db
+    elif refresh_token.client_token != client_token:
+        refresh_token.client_token = client_token
+        db.session.commit()
 
     # Now, re-issue Access token
     # Access token can always be re-issued
     access_token = AccessToken.from_refresh_token(refresh_token)
     access_token_jwt = access_token.create_token(key+csrf_token, algorithm, True)
+    response_data['access_token'] = {
+        'exp': access_token.exp,
+        'token': access_token_jwt,
+    }
 
-    response_data.update({
-        'refresh_token': {
-            'exp': refresh_token.exp
-        },
-        'access_token': {
-            'token': access_token_jwt,
-            'exp': access_token.exp,
-        },
-    })
+    # Re-issue Admin token if user is admin
+    if refresh_token.role and 'admin' in refresh_token.role:
+        admin_token = AdminToken.from_refresh_token(refresh_token)
+        admin_token_jwt = admin_token.create_token(key)
+        admin_token_cookie = utils.cookie_creator(
+            name='admin_token',
+            data=admin_token_jwt,
+            domain=server_name if restapi_version != 'dev' else None,
+            path=f'/api/{refresh_token.api_ver}/admin',
+            expires=utils.cookie_datetime(refresh_token.exp),
+            samesite=cookie_samesite,
+            secure=https_enable)
+        response_header.append(('Set-Cookie', admin_token_cookie))
+        response_data['admin_token'] = {'exp': admin_token.exp, }
+
     return response_header, response_data

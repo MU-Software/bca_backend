@@ -1,5 +1,4 @@
 import boto3
-import flask
 from botocore.exceptions import ClientError
 
 
@@ -8,7 +7,7 @@ from botocore.exceptions import ClientError
 # the e-mail addresses of the people you send with may be exposed to each other.
 def send_mail(fromaddr: str, toaddr: str, subject: str, message: str) -> str:
     # Create a new SES resource and specify a region.
-    client = boto3.client('ses', region_name=flask.current_app.config.get('AWS_REGION'))
+    client = boto3.client('ses')
 
     # Try to send the email.
     try:
@@ -27,7 +26,6 @@ def send_mail(fromaddr: str, toaddr: str, subject: str, message: str) -> str:
                     },
                 },
             },
-            # ConfigurationSetName=CONFIGURATION_SET,
         )
     except ClientError as e:
         Exception(f'Error raised while sending AWS SES email - {e.response["Error"]["Message"]}')

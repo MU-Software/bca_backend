@@ -15,14 +15,12 @@ class Board(db_module.DefaultModelMixin, db.Model):
     board_type = db.Column(db.String, default='normal', nullable=False)
     description = db.Column(db.String, unique=False, nullable=False)
 
-    locked = db.Column(db.Boolean, default=False, nullable=False)
     locked_at = db.Column(db.DateTime, nullable=True)
     locked_by_id = db.Column(db_module.PrimaryKeyType,
                              db.ForeignKey('TB_USER.uuid'),
                              nullable=True)
     locked_by = db.relationship(user_module.User, primaryjoin=locked_by_id == user_module.User.uuid)
 
-    deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db_module.PrimaryKeyType,
                               db.ForeignKey('TB_USER.uuid'),
@@ -64,15 +62,13 @@ class Post(db_module.DefaultModelMixin, db.Model):
     # This looks quite same as deleted, but...
     #   - cannot be garbage collected
     #   - cannot recover by admin
-    #   - only can be accessed by DB manager
-    locked = db.Column(db.Boolean, default=False, nullable=False)
+    #   - only can be accessed by direct DB querying
     locked_at = db.Column(db.DateTime, nullable=True)
     locked_by_id = db.Column(db_module.PrimaryKeyType,
                              db.ForeignKey('TB_USER.uuid'),
                              nullable=True)
     locked_by = db.relationship(user_module.User, primaryjoin=locked_by_id == user_module.User.uuid)
 
-    deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db_module.PrimaryKeyType,
                               db.ForeignKey('TB_USER.uuid'),
@@ -98,7 +94,7 @@ class Post(db_module.DefaultModelMixin, db.Model):
 
             # We need to show icon when post is announcement, deleted or private
             'announcement': self.announcement,
-            'deleted': self.deleted,
+            'deleted': self.deleted_at is not None,
             'private': self.private,
 
             # We need to send author's nickname, profile, and author's UUID,
@@ -141,7 +137,7 @@ class Comment(db_module.DefaultModelMixin, db.Model):
 
     body = db.Column(db.String, unique=False, nullable=False)
 
-    deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deletable = db.Column(db.Boolean, default=True, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db_module.PrimaryKeyType,
                               db.ForeignKey('TB_USER.uuid'),
@@ -150,7 +146,6 @@ class Comment(db_module.DefaultModelMixin, db.Model):
     private = db.Column(db.Boolean, default=False, nullable=False)
 
     modifiable = db.Column(db.Boolean, default=True, nullable=False)
-    deletable = db.Column(db.Boolean, default=True, nullable=False)
 
     def to_dict(self, has_perm: bool) -> dict:
         return {
@@ -161,7 +156,7 @@ class Comment(db_module.DefaultModelMixin, db.Model):
             'modified_at': self.modified_at if has_perm else '',
 
             'private': self.private,
-            'deleted': self.deleted,
+            'deleted': self.deleted_at is not None,
 
             'user': self.user.nickname if has_perm else '',
             'user_id': self.user_id if has_perm else 0,

@@ -6,7 +6,6 @@ import secrets
 import sqlalchemy.dialects.mysql as sqldlc_mysql
 import sqlalchemy.dialects.postgresql as sqldlc_psql
 import sqlalchemy.dialects.sqlite as sqldlc_sqlite
-import typing
 
 import app.common.utils as utils
 
@@ -122,16 +121,16 @@ class DefaultModelMixin:
     commit_id = db.Column(db.String, default=secrets.token_hex, onupdate=secrets.token_hex)
 
     @classmethod
-    def get_by_uuid(cls, uuid: int) -> typing.Optional['DefaultModelMixin']:
+    def get_by_uuid(cls, uuid: int, return_query: bool = True):
         if not hasattr(cls, 'uuid'):
             raise NotImplementedError(f'{cls.__name__} does not have uuid attribute')
         if not hasattr(cls, 'query'):
             raise NotImplementedError(f'{cls.__name__} does not look like a SQLAlchemy table')
 
-        query_result = cls.query.filter(cls.uuid == uuid).first()
-        if not query_result:
-            return None
-        return query_result
+        target_query = db.session.query(cls).filter(cls.uuid == uuid)
+        if return_query:
+            return target_query
+        return target_query.first()
 
 
 def init_app(app: flask.Flask):
@@ -151,12 +150,8 @@ def init_app(app: flask.Flask):
     import app.database.user as user  # noqa
     import app.database.board as board  # noqa
     import app.database.jwt as jwt_module  # noqa
+    import app.database.uploaded_file as filedb_module  # noqa
     import app.database.project_table as project_table  # noqa
-
-    if app.config.get('RESTAPI_VERSION') == 'dev':
-        # Drop DB tables when on dev mode
-        # db.drop_all()
-        pass
 
     # Create all tables only IF NOT EXISTS
     # The reason why I didn't use create_all is,
@@ -172,4 +167,5 @@ def init_app(app: flask.Flask):
         # Also, flush all keys in redis DB
         redis_db.flushdb()  # no asynchronous
 
-    return db
+    # init_app must return app
+    return app

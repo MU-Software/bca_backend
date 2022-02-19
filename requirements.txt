@@ -9,6 +9,8 @@ redis
 lxml
 pyyaml
 user-agents
+python-magic
+
 firebase-admin
 boto3
 apispec
@@ -18,5 +20,6 @@ flask
 flask-cors
 flask-sqlalchemy
 flask-admin
+flask-limiter[redis]
 
 gunicorn

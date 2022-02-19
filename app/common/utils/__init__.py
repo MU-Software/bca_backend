@@ -195,16 +195,20 @@ def BackendException(code=500, data='',
     return err
 
 
-# ---------- Time Calculator ----------
-utc_desc   = lambda a, syntax='%Y/%m/%d %H:%M:%S': time.strftime(syntax, time.gmtime(a))  # noqa
-
-date_to_time: typing.Callable[[int,], int] = lambda x: x * 24 * 60 * 60  # noqa
-hour_to_time: typing.Callable[[int,], int] = lambda x: x      * 60 * 60  # noqa
-update_rate: typing.Callable[[int,], int] = date_to_time(2) - hour_to_time(1)  # noqa
-
 # ---------- Timezone ----------
 UTC = datetime.timezone.utc
 KST = datetime.timezone(datetime.timedelta(hours=9))
+
+
+# ---------- Time Calculator ----------
+utc_desc   = lambda a, syntax='%Y/%m/%d %H:%M:%S': time.strftime(syntax, time.gmtime(a))  # noqa
+
+date_to_time: typing.Callable[[int, ], int] = lambda x: x * 24 * 60 * 60  # noqa
+hour_to_time: typing.Callable[[int, ], int] = lambda x: x      * 60 * 60  # noqa
+update_rate: typing.Callable[[int, ], int] = date_to_time(2) - hour_to_time(1)  # noqa
+
+as_utctime: typing.Callable[[datetime.datetime, ], datetime.datetime] = lambda x: x.replace(tzinfo=UTC)  # noqa
+as_timestamp: typing.Callable[[datetime.datetime, ], int] = lambda x: as_utctime(x).timestamp()  # noqa
 
 
 # ---------- Cookie Handler ----------
@@ -291,6 +295,7 @@ def ignore_exception(IgnoreException=Exception, DefaultVal=None):
 
 
 safe_int = ignore_exception(Exception, 0)(int)
+safe_json_loads = ignore_exception(Exception, None)(json.loads)
 
 
 def json_default(value):
@@ -304,18 +309,19 @@ pmmod_desc = lambda a: ''.join(y for x,y in zip([4&a,2&a,1&a], list('RWX')) if x
 
 
 # ---------- Utility Classes ----------
-class Singleton:
-    __instance = None
+class Singleton(type):  # Singleton metaclass
+    '''
+    from: https://stackoverflow.com/a/6798042/5702135
+    usage:
+        class Logger(metaclass=Singleton):
+            pass
+    '''
+    _instances = {}
 
-    @classmethod
-    def __getInstance(cls):
-        return cls.__instance
-
-    @classmethod
-    def instance(cls, *args, **kargs):
-        cls.__instance = cls(*args, **kargs)
-        cls.instance = cls.__getInstance
-        return cls.__instance
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
 
 
 class Struct:

@@ -82,6 +82,16 @@ class CommonResponseCase(api_class.ResponseCaseCollector):
         description='Requested response Content-Type is not accepted.',
         code=415, success=False,
         public_sub_code='http.content_type_unsupport')
+    http_upgrade = api_class.Response(
+        description='This request sends `Upgrade` header to change protocol from HTTP(S) to a different protocol.',
+        code=101, success=True,
+        public_sub_code='http.upgrade',
+        header=(('Connection', 'upgrade'), ), )
+
+    rate_limit = api_class.Response(
+        description='Too many requests got on specific time.',
+        code=429, success=False,
+        public_sub_code='request.rate_limit')
 
 
 class ResourceResponseCase(api_class.ResponseCaseCollector):

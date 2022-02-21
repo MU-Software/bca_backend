@@ -1,9 +1,9 @@
 import flask
 import flask.views
-import json
 
 import app.common.utils as utils
 import app.api.helper_class as api_class
+import app.api.common.file_manage as route_filemgr
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
@@ -63,17 +63,25 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             'private': {'type': 'boolean', }, })
     def post(self, req_body: dict, req_header: dict, access_token: jwt_module.AccessToken):
         '''
-        description: Create card
+        description: Create card. Request need to include image file.
         responses:
             - resource_created
             - resource_not_found
             - resource_forbidden
+            - body_empty
+            - body_bad_semantics
             - server_error
         '''
         try:
             requested_profile_id = utils.safe_int(req_header['X-Profile-Id'])
             if str(requested_profile_id) not in access_token.role:
                 return ResourceResponseCase.resource_forbidden.create_response()
+
+            file_upload_enabled: bool = flask.current_app.config.get('FILE_MANAGEMENT_ROUTE_ENABLE', False)
+            if not file_upload_enabled:
+                return CommonResponseCase.http_forbidden.create_response(
+                    message='File upload is not enabled',
+                    data={'reason': 'File upload is not enabled'}, )
 
             target_profile = db.session.query(profile_module.Profile)\
                 .filter(profile_module.Profile.locked_at.is_(None))\
@@ -84,12 +92,19 @@ class CardMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if not target_profile:
                 return ResourceResponseCase.resource_not_found.create_response()
 
+            # We'll handle upload first to make sure whether upload process success.
+            # This calls internal REST API
+            up_result: api_class.ResponseType = route_filemgr.FileManagementRoute().post()
+            up_res_body, up_res_code, up_res_header = up_result
+            if up_res_code != 201:  # Upload failed
+                return up_result
+
             new_card = profile_module.Card()
             new_card.user_id = target_profile.user_id
             new_card.profile_id = target_profile.uuid
             new_card.name = req_body['name']
             new_card.data = req_body['data']
-            new_card.preview_url = json.loads(req_body['data'])['image']
+            new_card.preview_url = up_res_body['file']['url']
             new_card.private = req_body.get('private', True)
 
             db.session.add(new_card)

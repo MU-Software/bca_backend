@@ -237,14 +237,12 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
 
-            return ResourceResponseCase.resource_deleted.create_response()
+            return ResourceResponseCase.resource_modified.create_response()
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
     @api_class.RequestHeader(
-        required_fields={
-            'If-Match': {'type': 'string', },
-        },
+        required_fields={'If-Match': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
     def delete(self, profile_id: int, req_header: dict, access_token: jwt_module.AccessToken):
         '''

@@ -193,7 +193,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Modify this profile
             editable_columns = (
                 'name', 'team_name',
-                'description', 'data', 'image_url',
+                'description', 'data',
                 'private', 'can_annonymous_invite')
             filtered_data = {col: field_val for col, field_val in req_body.items() if col in editable_columns}
             if not filtered_data:

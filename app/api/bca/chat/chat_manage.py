@@ -1,6 +1,6 @@
 import flask
 import flask.views
-import json
+import typing
 
 import app.common.utils as utils
 import app.api.helper_class as api_class
@@ -17,7 +17,9 @@ db = db_module.db
 
 
 class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
-    @api_class.RequestHeader(auth={api_class.AuthType.Bearer: True, })
+    @api_class.RequestHeader(
+        optional_fields={'X-Profile-Id': {'type': 'integer', }, },
+        auth={api_class.AuthType.Bearer: True, })
     def get(self, room_id: int, req_header: dict, access_token: jwt_module.AccessToken):
         '''
         description: Get this chatroom information.
@@ -37,12 +39,18 @@ class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ResourceResponseCase.resource_not_found.create_response(
                     data={'resource_name': ['chat_room', ]})
 
-            is_profile_in_room = db.session.query(chat_module.ChatParticipant)\
+            requested_profile_id: typing.Optional[int] = req_header.get('X-Profile-Id', None)
+            is_user_in_room = db.session.query(chat_module.ChatParticipant)\
                 .filter(chat_module.ChatParticipant.room_id == room_id)\
                 .filter(chat_module.ChatParticipant.user_id == access_token.user)\
-                .first()
-            return ResourceResponseCase.resource_found.create_response(
-                data={'chat_room': target_room.to_dict(is_profile_in_room is not None)})
+                .all()
+            if not is_user_in_room and target_room.private:
+                return ResourceResponseCase.resource_forbidden.create_response(message='공개되어 있지 않은 방입니다.', )
+
+            is_profile_in_room = bool([p for p in is_user_in_room if p.profile_id == requested_profile_id])
+            result_data = target_room.to_dict(is_profile_in_room is not None)
+            result_data['is_profile_entered'] = is_profile_in_room
+            return ResourceResponseCase.resource_found.create_response(data={'chat_room': result_data, }, )
 
         except Exception:
             return CommonResponseCase.server_error.create_response()
@@ -68,25 +76,26 @@ class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 return ResourceResponseCase.resource_forbidden.create_response(
                     message='접속하고 계신 프로필은 본인의 프로필이 아닙니다.')
 
-            try:
-                target_profiles_id_str = req_body['inviting_profiles']
-                if not target_profiles_id_str:
-                    return CommonResponseCase.body_empty.create_response(
-                        message='잘못된 요청입니다.\n(요청이 비어있습니다.)')
-
-                target_profiles_id_list: list[int] = json.loads(target_profiles_id_str)
+            target_profiles_id_str: str = req_body.get('inviting_profiles', 'null')
+            target_profiles_id_list: typing.Union[int, str, list[int], None] =\
+                utils.safe_json_loads(target_profiles_id_str)
+            if not target_profiles_id_list:
+                return CommonResponseCase.body_invalid.create_response(
+                    message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록이 비어있거나 이해할 수 없습니다.)')
+            elif isinstance(target_profiles_id_list, list):
+                # Check all elements in list is int
+                if all([isinstance(e, int) for e in target_profiles_id_list]):
+                    return CommonResponseCase.body_invalid.create_response(
+                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록 내 항목의 타입이 잘못되었습니다.)')
+            elif isinstance(target_profiles_id_list, (int, str)):
+                target_profiles_id_list = utils.safe_int(target_profiles_id_list)
                 if not target_profiles_id_list:
                     return CommonResponseCase.body_invalid.create_response(
-                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록이 비어있습니다.)')
-                elif isinstance(target_profiles_id_list, (int, str)):
-                    target_profiles_id_list = [int(target_profiles_id_list), ]
-                elif not isinstance(target_profiles_id_list, (list, int, str)):
-                    return CommonResponseCase.body_invalid.create_response(
-                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록의 형태가 잘못되었습니다.)')
-            except Exception:
-                # Parsing 'inviting_profiles' field in request body failed
+                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 ID의 타입이 잘못되었습니다.)')
+                target_profiles_id_list = [target_profiles_id_list, ]
+            else:
                 return CommonResponseCase.body_invalid.create_response(
-                    message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록을 이해할 수 없습니다.)')
+                    message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록의 형태가 잘못되었습니다.)')
 
             target_room = db.session.query(chat_module.ChatRoom)\
                 .filter(chat_module.ChatRoom.deleted_at.is_(None))\
@@ -149,6 +158,7 @@ class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
         auth={api_class.AuthType.Bearer: True, })
     @api_class.RequestBody(
         optional_fields={
+            'owner_profile_id': {'type': 'integer'},
             'name': {'type': 'string'},
             'description': {'type': 'string'},
             'private': {'type': 'boolean'}, }, )
@@ -159,6 +169,8 @@ class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
             - resource_modified
             - resource_forbidden
             - resource_not_found
+            - body_empty
+            - body_bad_semantics
         '''
         try:
             requested_profile_id: int = utils.safe_int(req_header['X-Profile-Id'])
@@ -173,10 +185,9 @@ class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
             if not target_room:
                 return ResourceResponseCase.resource_not_found.create_response(
                     data={'resource_name': ['chat_room', ]})
-
-            if target_room.created_by_profile_id != requested_profile_id:
+            if target_room.owner_profile_id != requested_profile_id:
                 return ResourceResponseCase.resource_forbidden.create_response(
-                    message='방 정보는 방 주인만이 수정할 수 있습니다.')
+                    message='방 정보는 방을 소유한 프로필만이 수정할 수 있습니다.')
 
             # Modify this chatroom information
             editable_columns = ('owner_profile_id', 'name', 'description', 'private', )

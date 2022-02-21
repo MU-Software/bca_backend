@@ -50,6 +50,7 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
                                             'Profile',
                                             primaryjoin=created_by_profile_id == profile_module.Profile.uuid)
 
+    participant_count = db.Column(db.Integer, nullable=False, default=0)
     participants: list['ChatParticipant'] = None  # Placeholder for backref
 
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -66,6 +67,8 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         new_participant.profile_id = profile.uuid
         new_participant.profile_name = profile.name
 
+        self.participant_count += 1
+
         db.session.add(new_participant)
         db.session.commit()
 
@@ -73,9 +76,11 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
 
     def leave_participant(self, participant: 'ChatParticipant', db_commit: bool = False):
         db.session.delete(participant)
+        self.participant_count -= 1
+
         self.create_new_event(ChatEventType.PARTICIPANT_OUT, participant, db_commit=False)
 
-        if not self.participants:
+        if not self.participant_count:
             self.deleted_at = datetime.datetime.utcnow().replace(tzinfo=utils.UTC)
 
         if db_commit:
@@ -115,21 +120,22 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
         # Send FCM push to all chat participants here
         # Set send target and send this messages to all, including event-raised users
         target_users: set[int] = {participant.user_id for participant in self.participants}
-        target_users_refreshtokens = db.session.query(jwt_module.RefreshToken)\
-            .filter(jwt_module.RefreshToken.user.in_(target_users))\
-            .all()
-        for refresh_token in target_users_refreshtokens:
-            if refresh_token.client_token:
-                try:
-                    fcm_data = new_event.to_dict()
-                    if new_event.event_type == ChatEventType.MESSAGE_POSTED:
-                        fcm_data['title'] = self.name
-                        fcm_data['message'] = new_event.message
-                    fcm_module.firebase_send_notify(
-                        data=fcm_data,
-                        target_token=refresh_token.client_token)
-                except Exception as err:
-                    print(utils.get_traceback_msg(err))
+        target_users_fcm_tokens: list[str] = db.session.query(jwt_module.RefreshToken.client_token)\
+            .filter(jwt_module.RefreshToken.user.in_(target_users)).distinct().all()
+        target_fcm_tokens = [tk for tk in target_users_fcm_tokens if tk]
+        fcm_data = new_event.to_dict()
+        if new_event.event_type == ChatEventType.MESSAGE_POSTED:
+            fcm_data['title'] = self.name
+            fcm_data['message'] = new_event.message
+
+        try:
+            fcm_module.firebase_send_notify(
+                title=fcm_data.get('title', None),
+                body=fcm_data('message', None),
+                data=fcm_data,
+                target_tokens=target_fcm_tokens)
+        except Exception:
+            pass
 
         return new_event
 
@@ -140,15 +146,13 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
             'uuid': self.uuid,
             'name': self.name,
             'description': self.description,
-            'participant_num': len(self.participants),
-            'created_by_profile_id': self.created_by_profile_id,
-            'created_by_profile': self.created_by_profile.to_dict(),
+            'participant_count': self.participant_count,
+            'owner_profile_id': self.owner_profile_id,
+            'owner_profile': self.owner_profile.to_dict(),
 
             'created_at': self.created_at,
             'modified_at': self.modified_at,
             'modified': self.created_at != self.modified_at,
-            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
-            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
             'commit_id': self.commit_id,
         }
 
@@ -216,8 +220,6 @@ class ChatParticipant(db_module.DefaultModelMixin, db.Model):
             'created_at': self.created_at,
             'modified_at': self.modified_at,
             'modified': self.created_at != self.modified_at,
-            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
-            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
             'commit_id': self.commit_id,
         }
 
@@ -270,7 +272,5 @@ class ChatEvent(db_module.DefaultModelMixin, db.Model):
             'created_at': self.created_at,
             'modified_at': self.modified_at,
             'modified': self.created_at != self.modified_at,
-            'created_at_int': int(self.created_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
-            'modified_at_int': int(self.modified_at.replace(tzinfo=datetime.timezone.utc).timestamp()),
             'commit_id': self.commit_id,
         }

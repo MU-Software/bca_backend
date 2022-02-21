@@ -50,6 +50,15 @@ class ChatRoom(db_module.DefaultModelMixin, db.Model):
                                             'Profile',
                                             primaryjoin=created_by_profile_id == profile_module.Profile.uuid)
 
+    owner_user_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_USER.uuid'), nullable=False)
+    owner_user: user_module.User = db.relationship(
+                                            'User',
+                                            primaryjoin=owner_user_id == user_module.User.uuid)
+    owner_profile_id = db.Column(db_module.PrimaryKeyType, db.ForeignKey('TB_PROFILE.uuid'), nullable=False)
+    owner_profile: profile_module.Profile = db.relationship(
+                                            'Profile',
+                                            primaryjoin=owner_profile_id == profile_module.Profile.uuid)
+
     participant_count = db.Column(db.Integer, nullable=False, default=0)
     participants: list['ChatParticipant'] = None  # Placeholder for backref
 

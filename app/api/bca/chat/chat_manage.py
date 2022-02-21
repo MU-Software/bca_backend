@@ -179,16 +179,44 @@ class ChatManageRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     message='방 정보는 방 주인만이 수정할 수 있습니다.')
 
             # Modify this chatroom information
-            editable_columns = ('name', 'description', 'private')
+            editable_columns = ('owner_profile_id', 'name', 'description', 'private', )
             filtered_data = {col: data for col, data in req_body.items() if col in editable_columns}
             if not filtered_data:
                 return CommonResponseCase.body_empty.create_response()
+            if 'owner_profile_id' in filtered_data:
+                if len(filtered_data) != 1:
+                    return CommonResponseCase.body_bad_semantics.create_response(
+                        data={'bad_semantics': [{
+                            'field': 'owner_profile_id',
+                            'reason': '권한을 이양할 시에는 방의 다른 정보를 수정할 수 없습니다.'}, ], }, )
+
+                # Check if owner_profile_id profile exists and it's entered in this room.
+                new_owner_profile = db.session.query(profile_module.Profile)\
+                    .filter(profile_module.Profile.deleted_at.is_(None))\
+                    .filter(profile_module.Profile.locked_at.is_(None))\
+                    .filter(profile_module.Profile.uuid == filtered_data['owner_profile_id'])\
+                    .first()
+                if not new_owner_profile:
+                    return ResourceResponseCase.resource_not_found.create_response()
+
+                is_new_owner_participant = db.session.query(chat_module.ChatParticipant)\
+                    .filter(chat_module.ChatParticipant.room_id == target_room.uuid)\
+                    .filter(chat_module.ChatParticipant.user_id == new_owner_profile.user_id)\
+                    .filter(chat_module.ChatParticipant.profile_id == new_owner_profile.uuid)\
+                    .first()
+                if not is_new_owner_participant:
+                    return ResourceResponseCase.resource_forbidden.create_response(
+                        message='권한을 이양할 프로필이 방에 참가하고 있지 않습니다.')
+
+                target_room.owner_user_id = new_owner_profile.user_id
+                target_room.owner_profile_id = new_owner_profile.uuid
+                return ResourceResponseCase.resource_modified.create_response(data=target_room.to_dict(False))
+
             for column, data in filtered_data.items():
                 setattr(target_room, column, data)
 
             db.session.commit()
-            return ResourceResponseCase.resource_modified.create_response(
-                data=target_room.to_dict(True), )
+            return ResourceResponseCase.resource_modified.create_response(data=target_room.to_dict(True))
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

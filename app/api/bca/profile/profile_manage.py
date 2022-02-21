@@ -10,6 +10,7 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
+import app.database.bca.chat as chat_module
 import app.plugin.bca.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
@@ -308,6 +309,15 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Apply changeset on user db
             with sqs_action.UserDBJournalCreator(db):
                 db.session.commit()
+
+            # Profile must leave from the all chat rooms
+            chat_participant_records = db.session.query(chat_module.ChatParticipant)\
+                .filter(chat_module.ChatParticipant.profile_id == target_profile.uuid)\
+                .all()
+            target_chatrooms = [(p, p.room) for p in chat_participant_records]
+            for participant, room in target_chatrooms:
+                room.leave_participant(participant, False)
+            db.session.commit()
 
             return ResourceResponseCase.resource_deleted.create_response()
         except Exception:

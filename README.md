@@ -15,7 +15,7 @@ This project uses some services of AWS. For example, This API server was written
 Service Name | Required | Usage
 |   :----:   |  :----:  | :----
 EC2          |   | Compute instance for API server.  
-S3           | O | File storage for user-db files and user-uploaded files.  
+S3           | O | File storage for user-db files. User-uploaded files will be saved on API server.  
 RDS          |   | API server natively supports PostgreSQL or SQLite3, but maybe it can handle MySQL/MariaDB, too (not tested tho). You don't need this if you use SQLite3.  
 ElastiCache  | O | Redis, not to mention long.  
 SQS          | O | Used for message queues in the task scheduler. One lambda instance is triggered per task job.  

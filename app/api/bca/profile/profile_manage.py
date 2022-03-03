@@ -11,7 +11,7 @@ import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
 import app.database.bca.chat as chat_module
-import app.plugin.bca.sqs_action as sqs_action
+import app.plugin.bca.user_db.sqs_action as sqs_action
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 from app.api.account.response_case import AccountResponseCase

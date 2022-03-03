@@ -7,9 +7,9 @@ import json
 import typing
 
 import app.common.utils as utils
-import app.plugin.bca.database.user_db_table as user_db_table
 import app.database as db_module
 import app.database.bca.profile as profile_module
+import app.plugin.bca.user_db.user_db_table as user_db_table
 
 db = db_module.db
 

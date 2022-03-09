@@ -287,7 +287,7 @@ class UserDBJournal:
                 TASK_ORDER: list[tuple[str, tuple[UserDBJournalActionCase]]] = [
                     ('TB_PROFILE', (
                         UserDBJournalActionCase.add,
-                        UserDBJournalActionCase.modify))
+                        UserDBJournalActionCase.modify)),
                     ('TB_CARD', (
                         UserDBJournalActionCase.add,
                         UserDBJournalActionCase.modify)),

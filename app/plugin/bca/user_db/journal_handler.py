@@ -347,9 +347,9 @@ class UserDBJournal:
 
 class UserDBJournalCreator:
     db: fsql.SQLAlchemy = None
-    session_added: list[db.Model] = None
-    session_modified: list[db.Model] = None
-    session_deleted: list[db.Model] = None
+    session_added: list = None
+    session_modified: list = None
+    session_deleted: list = None
 
     def __init__(self, db: fsql.SQLAlchemy):
         self.db = db

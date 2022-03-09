@@ -7,7 +7,7 @@ import app.api.common.file_manage as route_filemgr
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.user_db.sqs_action as sqs_action
+import app.plugin.bca.user_db.journal_handler as user_db_journal
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 
@@ -68,7 +68,7 @@ class ProfileImageManagementRoute(flask.views.MethodView, api_class.MethodViewMi
         target_profile.image_url = up_res_body['data']['file']['url']
 
         # Apply changeset on user db
-        with sqs_action.UserDBJournalCreator(db):
+        with user_db_journal.UserDBJournalCreator(db):
             db.session.commit()
 
         return ResourceResponseCase.resource_modified.create_response()

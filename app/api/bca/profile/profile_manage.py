@@ -11,7 +11,7 @@ import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
 import app.database.bca.chat as chat_module
-import app.plugin.bca.user_db.sqs_action as sqs_action
+import app.plugin.bca.user_db.journal_handler as user_db_journal
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -235,7 +235,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     setattr(target_profile, column, json.dumps(data, ensure_ascii=False))
 
             # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
+            with user_db_journal.UserDBJournalCreator(db):
                 db.session.commit()
 
             return ResourceResponseCase.resource_modified.create_response()
@@ -307,7 +307,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 redis_db.set(redis_key, 'revoked', datetime.timedelta(weeks=2))
 
             # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
+            with user_db_journal.UserDBJournalCreator(db):
                 db.session.commit()
 
             # Profile must leave from the all chat rooms

@@ -12,11 +12,11 @@ def init_celery_app():
 
     if celery_app is None:
         celery_backend_url = 'redis://'
-        redis_password = flask.current_app.config.get("REDIS_PASSWORD", None)
+        redis_password = flask.current_app.config.get('REDIS_PASSWORD', None)
         if redis_password:
             celery_backend_url += f':{redis_password}@'
-        celery_backend_url += flask.current_app.config.get("REDIS_HOST") + ':'
-        celery_backend_url += flask.current_app.config.get("REDIS_PORT")
+        celery_backend_url += flask.current_app.config.get('REDIS_HOST') + ':'
+        celery_backend_url += str(flask.current_app.config.get('REDIS_PORT'))
         celery_broker_url = celery_backend_url
 
         celery_app = celery.Celery(

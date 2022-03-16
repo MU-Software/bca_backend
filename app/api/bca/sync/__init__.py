@@ -18,11 +18,8 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
             - sync_ok
             - server_error
         '''
-        try:
-            return SyncResponseCase.sync_ok.create_response(
-                header=(('ETag', bca_sync_file_io.BCaSyncFile.get_hash(access_token.user)), ))
-        except Exception:
-            return CommonResponseCase.server_error.create_response()
+        return SyncResponseCase.sync_ok.create_response(
+            header=(('ETag', bca_sync_file_io.BCaSyncFile.get_hash(access_token.user)), ))
 
     @api_class.RequestHeader(
         optional_fields={'If-Match': {'type': 'string', }, },

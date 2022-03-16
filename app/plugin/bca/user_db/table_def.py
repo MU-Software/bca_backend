@@ -10,6 +10,15 @@ class UserDBDateTime(sqltypes.TypeDecorator):
     # Python Object to DB
     def process_bind_param(self, value: datetime.datetime, dialect):
         if value is not None:
+            if isinstance(value, str):
+                # Try to parse RFC1123 format time string
+                time_format = '%a, %d %b %Y %H:%M:%S GMT'
+                value = datetime.datetime.strptime(value, time_format).replace(tzinfo=datetime.timezone.utc)
+            elif isinstance(value, (int, float)):
+                # Treat value as timestamp integer
+                return int(value)
+
+            # value must be a datetime.datetime object.
             value = int(value.timestamp())
         return value
 

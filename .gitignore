@@ -173,7 +173,7 @@ docs/*
 user_content/
 
 # Execlude nohup output file
-nohup.out
+nohup*
 
 # Execlude backend SQLite DB file
 app/*.sqlite

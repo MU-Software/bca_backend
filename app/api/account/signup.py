@@ -156,7 +156,7 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         # Create and send new user db file
         try:
-            user_db_obj = bca_sync_file_io.BCaSyncFile.create(new_user.uuid, False, True)
+            user_db_obj = bca_sync_file_io.BCaSyncFile.create(new_user.uuid, True, True)
             file_md5 = user_db_obj.get_hash()
             file_b64 = user_db_obj.as_b64urlsafe()
 

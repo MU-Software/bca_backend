@@ -1,6 +1,6 @@
 import base64
 import enum
-import flask
+import os
 import pathlib as pt
 import sqlalchemy as sql
 import sqlalchemy.ext.declarative as sqldec
@@ -10,11 +10,8 @@ import tempfile
 import typing
 
 import app.common.utils as utils
-import app.database as db_module
-import app.database.bca.profile as profile_module
 import app.plugin.bca.user_db.table_def as user_db_table
 
-db = db_module.db
 SYNC_DB_BASE_DIR = pt.Path.cwd() / 'user_content' / 'bca_sync'
 SYNC_DB_BASE_KEY = 'user_content/bca_sync/{user_id}/sync_db.sqlite'
 SYNC_DB_ID_PATH = lambda user_id: SYNC_DB_BASE_DIR / str(user_id) / 'sync_db.sqlite'  # noqa
@@ -26,8 +23,8 @@ class BCaSyncFile:
     pathobj: pt.Path
 
     temp_file: tempfile._TemporaryFileWrapper
-    s3_bucket_name: str = flask.current_app.config.get('AWS_S3_BUCKET_NAME', None)
-    s3_region_name: str = flask.current_app.config.get('AWS_REGION', None)
+    s3_bucket_name: str = os.environ.get('AWS_S3_BUCKET_NAME', None)
+    s3_region_name: str = os.environ.get('AWS_REGION', None)
 
     @classmethod
     def create(cls,
@@ -146,7 +143,7 @@ class BCaSyncFile:
             target_file = SYNC_DB_ID_PATH(self_or_cls.user_id)
 
         if not target_file.exists():
-            raise FileNotFoundError()
+            BCaSyncFile.create_fs(user_id, True, True)
         return utils.file_md5(target_file)
 
     @utils.class_or_instancemethod
@@ -275,6 +272,11 @@ class BCaSyncFile:
             # Insert data to user db from global db
             # Find user's profiles, and find all card subscriptions using user's profiles.
             # Hopefully, we unnormalized columns, so we can query this easily... rignt?
+
+            # Import db_module and profile_module in this method to make this module file as portable as possible.
+            import app.database as db_module
+            import app.database.bca.profile as profile_module
+            db = db_module.db
 
             # All profile's ID that created by user, following profiles, and subscribed cards' profiles
             user_profiles_query = db.session.query(profile_module.Profile.uuid)\

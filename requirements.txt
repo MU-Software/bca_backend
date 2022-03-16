@@ -16,7 +16,7 @@ firebase-admin
 boto3
 apispec
 sadisplay
-redis-lock
+python-redis-lock
 
 flask
 flask-cors

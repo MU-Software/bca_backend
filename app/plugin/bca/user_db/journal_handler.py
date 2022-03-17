@@ -3,7 +3,6 @@ import enum
 import flask_sqlalchemy as fsql
 import json
 import os
-import pathlib as pt
 import sqlite3
 import typing
 import uuid
@@ -19,6 +18,7 @@ import app.common.firebase_notify as firebase_notify
 import app.plugin.bca.user_db.table_def as user_db_table
 import app.plugin.bca.user_db.file_io as user_db_file_io
 import app.plugin.bca.user_db.table_def as user_db_table_def
+import app.plugin.bca.user_db.temp_service_db as temp_service_db
 from app.plugin.bca.user_db.celery_init import internal_celery_app
 
 USER_DB_JOURNAL_DATA_DICT_TYPE = typing.TypedDict('USER_DB_MODIFY_DATA_DICT_TYPE', {
@@ -47,81 +47,6 @@ USER_DB_JOURNAL_DICT_TYPE = typing.TypedDict('USER_DB_JOURNAL_DICT_TYPE', {
     'changelog': USER_DB_JOURNAL_CHANGELOG_DICT_TYPE
 })
 USER_DB_TASK_SET_EXPIRE_TIMEDELTA = datetime.timedelta(minutes=10)
-
-
-class ServiceDBConnection:
-    engine: sql.engine.Engine = None
-    session: sqlorm.scoped_session = None
-    base = None
-    tables = None
-
-    def __init__(self):
-        # We need to change CWD because when service DB is SQLite file,
-        # It places on pt.Path.cwd() / 'app' directory as that's the main API server's CWD.
-        worker_cwd = pt.Path.cwd()
-        apiserver_cwd = worker_cwd / 'app'
-        os.chdir(apiserver_cwd)
-        self.engine = sql.create_engine(os.environ.get('DB_URL'))
-        os.chdir(worker_cwd)
-
-        self.session = sqlorm.scoped_session(
-                            sqlorm.sessionmaker(
-                                autocommit=False,
-                                autoflush=False,
-                                bind=self.engine))
-        self.base = sqldec.declarative_base()
-
-        class User(self.base):
-            __table__ = sql.Table(
-                'TB_USER', self.base.metadata,
-                autoload=True, autoload_with=self.engine)
-
-        class RefreshToken(self.base):
-            __table__ = sql.Table(
-                'TB_REFRESH_TOKEN', self.base.metadata,
-                autoload=True, autoload_with=self.engine)
-
-        class Profile(self.base):
-            __table__ = sql.Table(
-                'TB_PROFILE', self.base.metadata,
-                autoload=True, autoload_with=self.engine)
-
-        class ProfileRelation(self.base):
-            __table__ = sql.Table(
-                'TB_PROFILE_RELATION', self.base.metadata,
-                autoload=True, autoload_with=self.engine)
-
-        class Card(self.base):
-            __table__ = sql.Table(
-                'TB_CARD', self.base.metadata,
-                autoload=True, autoload_with=self.engine)
-
-        class CardSubscribed(self.base):
-            __table__ = sql.Table(
-                'TB_CARD_SUBSCRIPTION', self.base.metadata,
-                autoload=True, autoload_with=self.engine)
-
-        self.tables = {
-            'User': User,
-            'RefreshToken': RefreshToken,
-            'Profile': Profile,
-            'ProfileRelation': ProfileRelation,
-            'Card': Card,
-            'CardSubscribed': CardSubscribed,
-        }
-
-    def get_user_fcm_tokens(self, user_id: int) -> list[str]:
-        RefreshTokenTable = self.tables['RefreshToken']
-
-        result: list[tuple[str]] = self.session.query(RefreshTokenTable.client_token)\
-            .filter(RefreshTokenTable.user == int(user_id))\
-            .filter(RefreshTokenTable.client_token.is_not(None))\
-            .distinct().all()
-        # I don't know why, I don't want to know why, I shouldn't
-        # have to wonder why, but for whatever reason this stupid
-        # query isn't returning list[str] correctly. (It's returning `list[tuple[str]]`)!
-        # So, FCM request will fail unless we do this terribleness
-        return [item for sublist in result for item in sublist]
 
 
 class UserDBJournalActionCase(utils.EnumAutoName):
@@ -286,86 +211,93 @@ class UserDBJournal:
 
             with redis_lock.Lock(redis_conn, user_db_key):
                 try:
-                    # Get target DB file from File System or S3
+                    # Get target DB file from File System or S3.
+                    # If file is not found, then go to exception handler and create a DB file.
                     target_file: user_db_file_io.BCaSyncFile = None
                     try:
                         target_file = user_db_file_io.BCaSyncFile.load(self.db_owner_id)
+
+                        # Create SQLAlchemy ORM object
+                        user_db_orm_sqlite_conn = sqlite3.connect(target_file.pathobj)
+                        user_db_orm_engine = sql.create_engine('sqlite://', creator=lambda: user_db_orm_sqlite_conn)
+                        user_db_orm_session = sqlorm.scoped_session(
+                                                    sqlorm.sessionmaker(
+                                                        autocommit=False,
+                                                        autoflush=False,
+                                                        bind=user_db_orm_engine))
+                        user_db_orm_base = sqldec.declarative_base()
+                        user_db_orm_tables = {
+                            'TB_PROFILE': type(
+                                'ProfileTable', (user_db_orm_base, user_db_table_def.Profile), {}),
+                            'TB_PROFILE_RELATION': type(
+                                'ProfileRelationTable', (user_db_orm_base, user_db_table_def.ProfileRelation), {}),
+                            'TB_CARD': type(
+                                'CardTable', (user_db_orm_base, user_db_table_def.Card), {}),
+                            'TB_CARD_SUBSCRIPTION': type(
+                                'CardSubscriptionTable', (user_db_orm_base, user_db_table_def.CardSubscription), {})
+                        }
+
+                        # Re-Order tasks
+                        # We need to handle changelog this order to avoid FK error
+                        # 1. profile insertion/modification
+                        #    - TB_PROFILE, UserDBJournalActionCase.(add | modify)
+                        # 2. card insertion
+                        #    - TB_CARD, UserDBJournalActionCase.(add | modify)
+                        # 3. profile relation insertion/deletion/modification
+                        #    - TB_PROFILE_RELATION, UserDBJournalActionCase.(add | modify | delete)
+                        # 4. card subscription insertion/deletion/modification
+                        #    - TB_CARD_SUBSCRIPTION, UserDBJournalActionCase.(add | modify | delete)
+                        # 5. profile deletion
+                        #    - TB_PROFILE, UserDBJournalActionCase.(delete)
+                        # 6. card deletion
+                        #    - TB_CARD, UserDBJournalActionCase.(delete)
+                        # Let's order it.
+                        TASK_ORDER: list[tuple[str, tuple[UserDBJournalActionCase]]] = [
+                            ('TB_PROFILE', (
+                                UserDBJournalActionCase.add,
+                                UserDBJournalActionCase.modify, )),
+                            ('TB_CARD', (
+                                UserDBJournalActionCase.add,
+                                UserDBJournalActionCase.modify, )),
+                            ('TB_PROFILE_RELATION', (
+                                UserDBJournalActionCase.add,
+                                UserDBJournalActionCase.modify,
+                                UserDBJournalActionCase.delete, )),
+                            ('TB_CARD_SUBSCRIPTION', (
+                                UserDBJournalActionCase.add,
+                                UserDBJournalActionCase.modify,
+                                UserDBJournalActionCase.delete, )),
+                            ('TB_PROFILE', (
+                                UserDBJournalActionCase.delete, )),
+                            ('TB_CARD', (
+                                UserDBJournalActionCase.delete, )),
+                        ]
+
+                        ordered_tasks: list[UserDBJournalChangelogData] = list()
+                        for task_order_type in TASK_ORDER:
+                            task_order_type_tb_name = task_order_type[0]
+                            task_order_type_action = task_order_type[1]
+                            target_tb_changelog = [
+                                mtm for mtm in self.changes
+                                if mtm.tablename == task_order_type_tb_name
+                                and mtm.action in task_order_type_action]
+                            ordered_tasks += target_tb_changelog
+
+                        # OK, now task is ordered, let's apply it.
+                        for ordered_task in ordered_tasks:
+                            ordered_task.apply(user_db_orm_session, user_db_orm_tables)
+
+                        # Clean up the changes on DB and disconnect it.
+                        user_db_orm_session.commit()
+                        user_db_orm_engine.dispose()
+
                     except FileNotFoundError:
-                        target_file = user_db_file_io.BCaSyncFile.create(self.db_owner_id)
-
-                    # Create SQLAlchemy ORM object
-                    user_db_orm_sqlite_conn = sqlite3.connect(target_file.pathobj)
-                    user_db_orm_engine = sql.create_engine('sqlite://', creator=lambda: user_db_orm_sqlite_conn)
-                    user_db_orm_session = sqlorm.scoped_session(
-                                                sqlorm.sessionmaker(
-                                                    autocommit=False,
-                                                    autoflush=False,
-                                                    bind=user_db_orm_engine))
-                    user_db_orm_base = sqldec.declarative_base()
-                    user_db_orm_tables = {
-                        'TB_PROFILE': type(
-                            'ProfileTable', (user_db_orm_base, user_db_table_def.Profile), {}),
-                        'TB_PROFILE_RELATION': type(
-                            'ProfileRelationTable', (user_db_orm_base, user_db_table_def.ProfileRelation), {}),
-                        'TB_CARD': type(
-                            'CardTable', (user_db_orm_base, user_db_table_def.Card), {}),
-                        'TB_CARD_SUBSCRIPTION': type(
-                            'CardSubscriptionTable', (user_db_orm_base, user_db_table_def.CardSubscription), {})
-                    }
-
-                    # Re-Order tasks
-                    # We need to handle changelog this order to avoid FK error
-                    # 1. profile insertion/modification
-                    #    - TB_PROFILE, UserDBJournalActionCase.(add | modify)
-                    # 2. card insertion
-                    #    - TB_CARD, UserDBJournalActionCase.(add | modify)
-                    # 3. profile relation insertion/deletion/modification
-                    #    - TB_PROFILE_RELATION, UserDBJournalActionCase.(add | modify | delete)
-                    # 4. card subscription insertion/deletion/modification
-                    #    - TB_CARD_SUBSCRIPTION, UserDBJournalActionCase.(add | modify | delete)
-                    # 5. profile deletion
-                    #    - TB_PROFILE, UserDBJournalActionCase.(delete)
-                    # 6. card deletion
-                    #    - TB_CARD, UserDBJournalActionCase.(delete)
-                    # Let's order it.
-                    TASK_ORDER: list[tuple[str, tuple[UserDBJournalActionCase]]] = [
-                        ('TB_PROFILE', (
-                            UserDBJournalActionCase.add,
-                            UserDBJournalActionCase.modify, )),
-                        ('TB_CARD', (
-                            UserDBJournalActionCase.add,
-                            UserDBJournalActionCase.modify, )),
-                        ('TB_PROFILE_RELATION', (
-                            UserDBJournalActionCase.add,
-                            UserDBJournalActionCase.modify,
-                            UserDBJournalActionCase.delete, )),
-                        ('TB_CARD_SUBSCRIPTION', (
-                            UserDBJournalActionCase.add,
-                            UserDBJournalActionCase.modify,
-                            UserDBJournalActionCase.delete, )),
-                        ('TB_PROFILE', (
-                            UserDBJournalActionCase.delete, )),
-                        ('TB_CARD', (
-                            UserDBJournalActionCase.delete, )),
-                    ]
-
-                    ordered_tasks: list[UserDBJournalChangelogData] = list()
-                    for task_order_type in TASK_ORDER:
-                        task_order_type_tb_name = task_order_type[0]
-                        task_order_type_action = task_order_type[1]
-                        target_tb_changelog = [
-                            mtm for mtm in self.changes
-                            if mtm.tablename == task_order_type_tb_name
-                            and mtm.action in task_order_type_action]
-                        ordered_tasks += target_tb_changelog
-
-                    # OK, now task is ordered, let's apply it.
-                    for ordered_task in ordered_tasks:
-                        ordered_task.apply(user_db_orm_session, user_db_orm_tables)
-
-                    # Clean up the changes on DB and disconnect it.
-                    user_db_orm_session.commit()
-                    user_db_orm_engine.dispose()
+                        # As user sync db file is not found, We need to create a new User DB file.
+                        # As we created and pulled all latest data from service db,
+                        # we don't need to do some additional journal jobs.
+                        target_file = user_db_file_io.BCaSyncFile.create(self.db_owner_id, False, True)
+                        temp_service_db.TemporaryServiceDBConnection()\
+                            .insert_user_db_record(self.db_owner_id, target_file)
 
                     # Save or upload it.
                     # If the file is on a local storage, then changes will be applied automatically,
@@ -381,7 +313,8 @@ class UserDBJournal:
                     if not redis_conn.exists(user_db_task_set_key):
                         # There's no pending tasks! Send push to user!
                         try:
-                            target_fcm_tokens = ServiceDBConnection().get_user_fcm_tokens(self.db_owner_id)
+                            target_fcm_tokens = temp_service_db.TemporaryServiceDBConnection()\
+                                .get_user_fcm_tokens(self.db_owner_id)
                             print(target_fcm_tokens)
                             firebase_notify.firebase_send_notify(
                                 data={'resource': 'dbsync_event', 'etag': target_file.get_hash(), },

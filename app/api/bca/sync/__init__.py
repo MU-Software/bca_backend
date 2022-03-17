@@ -1,11 +1,9 @@
-import base64
 import flask
 import flask.views
 
-import app.common.utils as utils
 import app.api.helper_class as api_class
 import app.database.jwt as jwt_module
-import app.plugin.bca.s3_action as s3_action
+import app.plugin.bca.user_db.file_io as bca_sync_file_io
 
 from app.api.response_case import CommonResponseCase
 from app.api.bca.sync.sync_response_case import SyncResponseCase
@@ -20,18 +18,15 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
             - sync_ok
             - server_error
         '''
-        try:
-            return SyncResponseCase.sync_ok.create_response(
-                header=(('ETag', s3_action.get_user_db_md5(access_token.user)), ))
-        except Exception:
-            return CommonResponseCase.server_error.create_response()
+        return SyncResponseCase.sync_ok.create_response(
+            header=(('ETag', bca_sync_file_io.BCaSyncFile.get_hash(access_token.user)), ))
 
     @api_class.RequestHeader(
         optional_fields={'If-Match': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
     def get(self, req_header: dict, access_token: jwt_module.AccessToken):
         '''
-        description: Send DB hash
+        description: Send DB file data as URL-safe base64
         responses:
             - sync_ok
             - sync_latest
@@ -40,21 +35,18 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
         try:
             md5_placeholder = 'THISSTRINGCANNOTBETHEMD5`~!@#$%^&*()-_=+[{]};:\'"\\|,<.>/?'
             client_md5 = req_header.get('If-Match', md5_placeholder)
-            if s3_action.check_user_db_md5(access_token.user, client_md5):
-                return SyncResponseCase.sync_latest.create_response(
-                    header=(('ETag', client_md5), ),
-                )
 
-            user_db_file_obj = s3_action.get_user_db(access_token.user)
-            user_db_file_obj.seek(0)
+            if bca_sync_file_io.BCaSyncFile.check_hash(user_id=access_token.user, hash_str=client_md5):
+                return SyncResponseCase.sync_latest.create_response(header=(('ETag', client_md5), ), )
 
-            file_md5 = utils.fileobj_md5(user_db_file_obj)
-            file_b64 = base64.b64encode(user_db_file_obj.read()).decode()
-            user_db_file_obj.close()
+            try:
+                user_db_obj = bca_sync_file_io.BCaSyncFile.load(access_token.user)
+            except FileNotFoundError:
+                user_db_obj = bca_sync_file_io.BCaSyncFile.create(access_token.user, True, True)
 
-            return SyncResponseCase.sync_ok.create_response(
-                header=(('ETag', file_md5), ),
-                data={'db': file_b64})
+            file_md5 = user_db_obj.get_hash()
+            file_b64 = user_db_obj.as_b64urlsafe()
+            return SyncResponseCase.sync_ok.create_response(header=(('ETag', file_md5), ), data={'db': file_b64})
 
         except Exception:
             return CommonResponseCase.server_error.create_response()
@@ -69,15 +61,9 @@ class SyncRoute(flask.views.MethodView, api_class.MethodViewMixin):
             - server_error
         '''
         try:
-            user_db_file_obj = s3_action.create_user_db(access_token.user, True, True)
-            if not user_db_file_obj:
-                raise Exception
-            user_db_file_obj.seek(0)
-
-            file_md5 = utils.fileobj_md5(user_db_file_obj)
-            file_b64 = base64.b64encode(user_db_file_obj.read()).decode()
-            user_db_file_obj.close()
-
+            user_db_obj = bca_sync_file_io.BCaSyncFile.create(access_token.user, True, True)
+            file_md5 = user_db_obj.get_hash()
+            file_b64 = user_db_obj.as_b64urlsafe()
             return SyncResponseCase.sync_ok.create_response(
                 header=(('ETag', file_md5), ),
                 data={'db': file_b64})

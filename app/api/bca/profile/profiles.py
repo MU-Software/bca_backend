@@ -8,7 +8,7 @@ import app.database as db_module
 import app.database.user as user_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.sqs_action as sqs_action
+import app.plugin.bca.user_db.journal_handler as user_db_journal
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -103,7 +103,10 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # Add to db
             db.session.add(new_profile)
-            db.session.commit()
+
+            # Apply changeset on both user db and service db
+            with user_db_journal.UserDBJournalCreator(db):
+                db.session.commit()
 
             # Add profile id on user roles. This must be done after create opetaion to get UUID of profile
             current_role: list = json.loads(target_user.role)
@@ -123,10 +126,6 @@ class ProfileMainRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 # TODO: set can set multiple at once, so use that method instead
                 redis_key = db_module.RedisKeyType.TOKEN_REVOKE.as_redis_key(target.jti)
                 redis_db.set(redis_key, 'revoked', datetime.timedelta(weeks=2))
-
-            # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
-                db.session.commit()
 
             return ResourceResponseCase.resource_created.create_response(
                 header=(('ETag', new_profile.commit_id, ), ),

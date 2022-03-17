@@ -1,6 +1,5 @@
 import flask
 import werkzeug.exceptions
-# import urllib.parse
 
 import app.common.utils as utils
 from app.api.response_case import CommonResponseCase
@@ -14,7 +13,10 @@ def before_first_request():
 
 def before_request():
     if flask.current_app.config.get('RESTAPI_VERSION') == 'dev':
-        if flask.request.headers.get('X-Development-Key') != flask.current_app.config.get('DEVELOPMENT_KEY'):
+        config_dev_key = flask.current_app.config.get('DEVELOPMENT_KEY', None)
+        req_dev_key = flask.request.headers.get('X-Development-Key', None)
+
+        if req_dev_key != config_dev_key:
             return AccountResponseCase.user_signed_out.create_response()
 
     # if flask.current_app.config.get('REFERER_CHECK'):
@@ -25,8 +27,6 @@ def before_request():
 
 
 def after_request(response):
-    # print('After response executed!')
-    # print(dir(response))
     return response
 
 
@@ -53,6 +53,10 @@ def register_request_handler(app: flask.Flask):
     @app.errorhandler(405)
     def handle_405(exception: werkzeug.exceptions.HTTPException):
         return CommonResponseCase.http_mtd_forbidden.create_response()
+
+    @app.errorhandler(429)
+    def handle_429(exception: werkzeug.exceptions.HTTPException):
+        return CommonResponseCase.rate_limit.create_response()
 
     @app.errorhandler(Exception)
     def handle_exception(exception: werkzeug.exceptions.HTTPException):

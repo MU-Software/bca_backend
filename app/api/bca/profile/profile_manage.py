@@ -10,7 +10,8 @@ import app.common.utils as utils
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.sqs_action as sqs_action
+import app.database.bca.chat as chat_module
+import app.plugin.bca.user_db.journal_handler as user_db_journal
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -193,7 +194,7 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
             # Modify this profile
             editable_columns = (
                 'name', 'team_name',
-                'description', 'data', 'image_url',
+                'description', 'data',
                 'private', 'can_annonymous_invite')
             filtered_data = {col: field_val for col, field_val in req_body.items() if col in editable_columns}
             if not filtered_data:
@@ -234,17 +235,15 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                     setattr(target_profile, column, json.dumps(data, ensure_ascii=False))
 
             # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
+            with user_db_journal.UserDBJournalCreator(db):
                 db.session.commit()
 
-            return ResourceResponseCase.resource_deleted.create_response()
+            return ResourceResponseCase.resource_modified.create_response()
         except Exception:
             return CommonResponseCase.server_error.create_response()
 
     @api_class.RequestHeader(
-        required_fields={
-            'If-Match': {'type': 'string', },
-        },
+        required_fields={'If-Match': {'type': 'string', }, },
         auth={api_class.AuthType.Bearer: True, })
     def delete(self, profile_id: int, req_header: dict, access_token: jwt_module.AccessToken):
         '''
@@ -308,8 +307,17 @@ class ProfileManagementRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 redis_db.set(redis_key, 'revoked', datetime.timedelta(weeks=2))
 
             # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
+            with user_db_journal.UserDBJournalCreator(db):
                 db.session.commit()
+
+            # Profile must leave from the all chat rooms
+            chat_participant_records = db.session.query(chat_module.ChatParticipant)\
+                .filter(chat_module.ChatParticipant.profile_id == target_profile.uuid)\
+                .all()
+            target_chatrooms = [(p, p.room) for p in chat_participant_records]
+            for participant, room in target_chatrooms:
+                room.leave_participant(participant, False)
+            db.session.commit()
 
             return ResourceResponseCase.resource_deleted.create_response()
         except Exception:

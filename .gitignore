@@ -115,6 +115,7 @@ env_collection/*
 # But except environment file creator
 !env_collection/env_creator.py
 !env_collection/dev.json
+!env_collection/minimal.json
 !env_collection/template
 
 # Spyder project settings
@@ -167,3 +168,12 @@ docs/*
 
 # Exclude temporary directories
 [Tt]mp
+
+# Execlude FROST's user-uploaded file directory
+user_content/
+
+# Execlude nohup output file
+nohup*
+
+# Execlude backend SQLite DB file
+app/*.sqlite

@@ -1,6 +1,6 @@
 ![B.Ca title image](./.github/readme/title.png)
 # B.Ca API backend repository
-B.Ca is a communication messenger project focusing on business card, which was cunducted as a graduation work.  
+B.Ca is a communication messenger project focusing on business card, which was conducted as a graduation work.  
 This repository contains the main API backend server code written in Python.  
 Also, this repository is based on [FROST project](https://github.com/MU-software/frost).  
 
@@ -15,7 +15,7 @@ This project uses some services of AWS. For example, This API server was written
 Service Name | Required | Usage
 |   :----:   |  :----:  | :----
 EC2          |   | Compute instance for API server.  
-S3           | O | File storage for user-db files and user-uploaded files.  
+S3           | O | File storage for user-db files. User-uploaded files will be saved on API server.  
 RDS          |   | API server natively supports PostgreSQL or SQLite3, but maybe it can handle MySQL/MariaDB, too (not tested tho). You don't need this if you use SQLite3.  
 ElastiCache  | O | Redis, not to mention long.  
 SQS          | O | Used for message queues in the task scheduler. One lambda instance is triggered per task job.  

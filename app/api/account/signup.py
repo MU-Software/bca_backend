@@ -1,4 +1,3 @@
-import base64
 import datetime
 import flask
 import flask.views
@@ -13,7 +12,7 @@ import app.database as db_module
 import app.database.user as user
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.s3_action as s3_action
+import app.plugin.bca.user_db.file_io as bca_sync_file_io
 
 from app.api.response_case import CommonResponseCase
 from app.api.account.response_case import AccountResponseCase
@@ -59,6 +58,11 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'id': reason},)})
         if reason := utils.is_passwordsafe(req_body['pw']):
+            return CommonResponseCase.body_bad_semantics.create_response(
+                data={'bad_semantics': ({'pw': reason},)})
+
+        if req_body['pw'] in (req_body['id'], req_body['email'], req_body['nick']):
+            reason = 'PW_REUSED_ON_ID_EMAIL_NICK'
             return CommonResponseCase.body_bad_semantics.create_response(
                 data={'bad_semantics': ({'pw': reason},)})
 
@@ -152,14 +156,9 @@ class SignUpRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
         # Create and send new user db file
         try:
-            user_db_file_obj = s3_action.create_user_db(new_user.uuid, True, True)
-            if not user_db_file_obj:
-                raise Exception
-            user_db_file_obj.seek(0)
-
-            file_md5 = utils.fileobj_md5(user_db_file_obj)
-            file_b64 = base64.b64encode(user_db_file_obj.read()).decode()
-            user_db_file_obj.close()
+            user_db_obj = bca_sync_file_io.BCaSyncFile.create(new_user.uuid, True, True)
+            file_md5 = user_db_obj.get_hash()
+            file_b64 = user_db_obj.as_b64urlsafe()
 
             jwt_data_header.append(('ETag', file_md5))
             response_body['db': file_b64]

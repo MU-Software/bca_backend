@@ -2,7 +2,7 @@ import flask
 import flask.views
 import sqlalchemy as sql
 import sqlalchemy.sql as sql_sql
-import json
+import typing
 
 import app.common.utils as utils
 import app.api.helper_class as api_class
@@ -43,11 +43,10 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(chat_module.ChatRoom.uuid.in_(participanted_chatroom_id_query))\
                 .all()
             if not participanted_chatroom:
-                return ResourceResponseCase.resource_not_found.create_response(
-                    message='참여 중인 채팅방이 없습니다.')
+                return ResourceResponseCase.resource_not_found.create_response(message='참여 중인 채팅방이 없습니다.')
 
             return ResourceResponseCase.multiple_resources_found.create_response(
-                data={'chat_rooms': [r.to_dict(include_events=True) for r in participanted_chatroom], }, )
+                data={'chat_rooms': [r.to_dict(include_events=False) for r in participanted_chatroom], }, )
 
         except Exception:
             return CommonResponseCase.server_error.create_response()
@@ -88,25 +87,26 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
 
             # Try to invite other profiles
             # Parse chatroom profile list on request body
-            try:
-                target_profiles_id_str = req_body['inviting_profiles']
-                if not target_profiles_id_str:
-                    return CommonResponseCase.body_empty.create_response(
-                        message='잘못된 요청입니다.\n(요청이 비어있습니다.)')
-
-                target_profiles_id_list: list[int] = json.loads(target_profiles_id_str)
+            target_profiles_id_str: str = req_body.get('inviting_profiles', 'null')
+            target_profiles_id_list: typing.Union[int, str, list[int], None] =\
+                utils.safe_json_loads(target_profiles_id_str)
+            if not target_profiles_id_list:
+                return CommonResponseCase.body_invalid.create_response(
+                    message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록이 비어있거나 이해할 수 없습니다.)')
+            elif isinstance(target_profiles_id_list, list):
+                # Check all elements in list is int
+                if all([isinstance(e, int) for e in target_profiles_id_list]):
+                    return CommonResponseCase.body_invalid.create_response(
+                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록 내 항목의 타입이 잘못되었습니다.)')
+            elif isinstance(target_profiles_id_list, (int, str)):
+                target_profiles_id_list = utils.safe_int(target_profiles_id_list)
                 if not target_profiles_id_list:
                     return CommonResponseCase.body_invalid.create_response(
-                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록이 비어있습니다.)')
-                elif isinstance(target_profiles_id_list, (int, str)):
-                    target_profiles_id_list = [int(target_profiles_id_list), ]
-                elif not isinstance(target_profiles_id_list, (list, int, str)):
-                    return CommonResponseCase.body_invalid.create_response(
-                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록의 형태가 잘못되었습니다.)')
-            except Exception:
-                # Parsing 'inviting_profiles' field in request body failed
+                        message='잘못된 요청입니다.\n(요청하신 초대할 프로필 ID의 타입이 잘못되었습니다.)')
+                target_profiles_id_list = [target_profiles_id_list, ]
+            else:
                 return CommonResponseCase.body_invalid.create_response(
-                    message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록을 이해할 수 없습니다.)')
+                    message='잘못된 요청입니다.\n(요청하신 초대할 프로필 목록의 형태가 잘못되었습니다.)')
 
             # If there's already on 1:1 chatroom,
             # then we need to send that room id, rather than creating new room.
@@ -132,15 +132,22 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
             new_chatroom.description = req_body.get('description', None)
             new_chatroom.created_by_user_id = access_token.user
             new_chatroom.created_by_profile_id = requested_profile.uuid
+            new_chatroom.owner_user_id = access_token.user
+            new_chatroom.owner_profile_id = requested_profile.uuid
             db.session.add(new_chatroom)
 
+            # We'll manually add creator as participant,
+            # because this object can be used later.
+            # Just don't forget to increase participant_count!
             creator_as_participant = chat_module.ChatParticipant()
             creator_as_participant.room = new_chatroom
+            creator_as_participant.room_name = new_chatroom.name
             creator_as_participant.user_id = access_token.user
             creator_as_participant.profile_id = requested_profile.uuid
             creator_as_participant.profile_name = requested_profile.name
             db.session.add(creator_as_participant)
 
+            new_chatroom.participant_count += 1
             db.session.commit()
 
             target_profiles = db.session.query(profile_module.Profile)\
@@ -149,14 +156,12 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 .filter(profile_module.Profile.uuid.in_(target_profiles_id_list))\
                 .all()
             if not target_profiles:
+                db.session.delete(creator_as_participant)
+                db.session.delete(new_chatroom)
+                db.session.commit()
                 return ResourceResponseCase.resource_not_found.create_response(
-                    message='해당 프로필들을 찾을 수 없습니다.',
+                    message='방에 초대하시려는 모든 프로필을 찾을 수 없습니다.',
                     data={'resource_name': ['profile', ]})
-            if len(target_profiles_id_list) != 1 and [p for p in target_profiles
-                                                      if p.user_id == access_token.user
-                                                      and p.uuid != requested_profile_id]:
-                return ResourceResponseCase.resource_forbidden.create_response(
-                    message='본인의 다른 프로필을 초대할 수 없습니다.')
 
             result: list[chat_invitation.ChatInvitableCheckReturnType] = list()
             for target_profile in target_profiles:
@@ -174,7 +179,7 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                 db.session.delete(new_chatroom)
                 db.session.commit()
                 return ResourceResponseCase.resource_forbidden.create_response(
-                    message='요청하신 모든 프로필들을 초대할 수 없었습니다.')
+                    message='방에 초대하시려는 모든 프로필을 초대할 수 없었습니다.')
 
             # If we succeed to invite some profiles, then change name of chatroom to profile names
             if req_body.get('name', False):
@@ -198,11 +203,10 @@ class ChatRoute(flask.views.MethodView, api_class.MethodViewMixin):
                         {'code': p.code, 'message': p.message, 'data': p.data}
                     ), result) if b}
                 return ResourceResponseCase.multiple_resources_found.create_response(
-                    message='몇몇 프로필은 초대에 실패했습니다.',
+                    message='일부 프로필을 초대할 수 없습니다.',
                     data={
                         'chat_room': new_chatroom.to_dict(),
-                        'reason': response_data,
-                    }, )
+                        'reason': response_data, }, )
 
         except Exception:
             return CommonResponseCase.server_error.create_response()

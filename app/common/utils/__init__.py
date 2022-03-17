@@ -6,6 +6,7 @@ import flask
 import hashlib
 import json
 import math
+import os
 import random
 import socket
 import string
@@ -119,10 +120,8 @@ def raise_(e) -> None:
 
 
 def get_traceback_msg(err):
-    return ''.join(traceback.format_exception(
-                   etype=type(err),
-                   value=err,
-                   tb=err.__traceback__))
+    # FUTURE: We can pass the exception object only on Python 3.10
+    return ''.join(traceback.format_exception(err, value=err, tb=err.__traceback__))
 
 
 # ---------- Elegant Pairing ----------
@@ -148,7 +147,7 @@ def fileobj_md5(fp) -> str:
     return hash_md5.hexdigest()
 
 
-def file_md5(fname: str) -> str:
+def file_md5(fname: os.PathLike) -> str:
     return fileobj_md5(open(fname, 'rb'))
 
 
@@ -195,16 +194,20 @@ def BackendException(code=500, data='',
     return err
 
 
-# ---------- Time Calculator ----------
-utc_desc   = lambda a, syntax='%Y/%m/%d %H:%M:%S': time.strftime(syntax, time.gmtime(a))  # noqa
-
-date_to_time: typing.Callable[[int,], int] = lambda x: x * 24 * 60 * 60  # noqa
-hour_to_time: typing.Callable[[int,], int] = lambda x: x      * 60 * 60  # noqa
-update_rate: typing.Callable[[int,], int] = date_to_time(2) - hour_to_time(1)  # noqa
-
 # ---------- Timezone ----------
 UTC = datetime.timezone.utc
 KST = datetime.timezone(datetime.timedelta(hours=9))
+
+
+# ---------- Time Calculator ----------
+utc_desc   = lambda a, syntax='%Y/%m/%d %H:%M:%S': time.strftime(syntax, time.gmtime(a))  # noqa
+
+date_to_time: typing.Callable[[int, ], int] = lambda x: x * 24 * 60 * 60  # noqa
+hour_to_time: typing.Callable[[int, ], int] = lambda x: x      * 60 * 60  # noqa
+update_rate: typing.Callable[[int, ], int] = date_to_time(2) - hour_to_time(1)  # noqa
+
+as_utctime: typing.Callable[[datetime.datetime, ], datetime.datetime] = lambda x: x.replace(tzinfo=UTC)  # noqa
+as_timestamp: typing.Callable[[datetime.datetime, ], int] = lambda x: as_utctime(x).timestamp()  # noqa
 
 
 # ---------- Cookie Handler ----------
@@ -291,6 +294,7 @@ def ignore_exception(IgnoreException=Exception, DefaultVal=None):
 
 
 safe_int = ignore_exception(Exception, 0)(int)
+safe_json_loads = ignore_exception(Exception, None)(json.loads)
 
 
 def json_default(value):
@@ -304,18 +308,19 @@ pmmod_desc = lambda a: ''.join(y for x,y in zip([4&a,2&a,1&a], list('RWX')) if x
 
 
 # ---------- Utility Classes ----------
-class Singleton:
-    __instance = None
+class Singleton(type):  # Singleton metaclass
+    '''
+    from: https://stackoverflow.com/a/6798042/5702135
+    usage:
+        class Logger(metaclass=Singleton):
+            pass
+    '''
+    _instances = {}
 
-    @classmethod
-    def __getInstance(cls):
-        return cls.__instance
-
-    @classmethod
-    def instance(cls, *args, **kargs):
-        cls.__instance = cls(*args, **kargs)
-        cls.instance = cls.__getInstance
-        return cls.__instance
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
 
 
 class Struct:
@@ -326,6 +331,43 @@ class Struct:
 class EnumAutoName(enum.Enum):
     def _generate_next_value_(name, start, count, last_values):
         return name
+
+
+class hybridmethod:
+    """
+    This can make us to write classmethod and instancemethod with same name
+    From https://stackoverflow.com/a/28238047
+    """
+    def __init__(self, fclass, finstance=None, doc=None):
+        self.fclass = fclass
+        self.finstance = finstance
+        self.__doc__ = doc or fclass.__doc__
+        # support use on abstract base classes
+        self.__isabstractmethod__ = bool(
+            getattr(fclass, '__isabstractmethod__', False)
+        )
+
+    def classmethod(self, fclass):
+        return type(self)(fclass, self.finstance, None)
+
+    def instancemethod(self, finstance):
+        return type(self)(self.fclass, finstance, self.__doc__)
+
+    def __get__(self, instance, cls):
+        if instance is None or self.finstance is None:
+            # either bound to the class, or no instance method available
+            return self.fclass.__get__(cls, None)
+        return self.finstance.__get__(instance, cls)
+
+
+class class_or_instancemethod(classmethod):
+    """
+    This can make us to write classmethod and instancemethod on same method object.
+    From https://stackoverflow.com/a/28238047
+    """
+    def __get__(self, instance, type_):
+        descr_get = super().__get__ if instance is None else self.__func__.__get__
+        return descr_get(instance, type_)
 
 
 # ---------- SQLAlchemy helper Function ----------

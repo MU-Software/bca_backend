@@ -9,14 +9,19 @@ redis
 lxml
 pyyaml
 user-agents
+python-magic
+pillow
+
 firebase-admin
 boto3
 apispec
 sadisplay
+python-redis-lock
 
 flask
 flask-cors
 flask-sqlalchemy
 flask-admin
+flask-limiter[redis]
 
 gunicorn

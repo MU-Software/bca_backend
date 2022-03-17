@@ -6,7 +6,7 @@ import app.api.helper_class as api_class
 import app.database as db_module
 import app.database.jwt as jwt_module
 import app.database.bca.profile as profile_module
-import app.plugin.bca.sqs_action as sqs_action
+import app.plugin.bca.user_db.journal_handler as user_db_journal
 
 from app.api.response_case import CommonResponseCase, ResourceResponseCase
 from app.api.bca.card.cardsubscription_response_case import CardSubscriptionResponseCase
@@ -153,7 +153,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db.session.add(new_subscription)
 
             # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
+            with user_db_journal.UserDBJournalCreator(db):
                 db.session.commit()
 
             return CardSubscriptionResponseCase.card_subscribed.create_response()
@@ -192,7 +192,7 @@ class CardSubsctiptionRoute(flask.views.MethodView, api_class.MethodViewMixin):
             db.session.delete(target_card_subscription)
 
             # Apply changeset on user db
-            with sqs_action.UserDBJournalCreator(db):
+            with user_db_journal.UserDBJournalCreator(db):
                 db.session.commit()
 
             return CardSubscriptionResponseCase.card_unsubscribed.create_response()

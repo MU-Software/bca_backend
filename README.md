@@ -1,46 +1,43 @@
 ![B.Ca title image](./.github/readme/title.png)
 # B.Ca API backend repository
-B.Ca is a communication messenger project focusing on business card, which was conducted as a graduation work.  
-This repository contains the main API backend server code written in Python.  
-Also, this repository is based on [FROST project](https://github.com/MU-software/frost).  
+B.Ca is a communication messenger project focusing on a business card, which was conducted as a graduation project.  
+This repository contains the main API backend server code (which is based on [FROST project](https://github.com/MU-software/frost)) and a Task Scheduler([Celery](https://docs.celeryq.dev/) Worker).  
 
-# Project structure
-The project consists of an Android client, this API server, and a task scheduler.  
+## Project structure
+The project consists of an Android client, this API server, and a Task Scheduler.  
 * Android client: The title says all.  
-* API backend server: This repository, this handles all HTTP REST requests.  
-* Task scheduler: Task scheduler handles some batch tasks that can take much time, like user db file modifications. This runs on AWS SQS and Lambda.
+* API backend server: This repository. This handles all HTTP REST requests.  
+* Task scheduler: Task scheduler, which is implemented as a Celery worker, handles some batch tasks that can take much time, like user db file modification. Originally, this was on a separate repository, but it was merged to this repository while migrating to Celery worker.
 
-### AWS dependencies
-This project uses some services of AWS. For example, This API server was written assuming that it would run on an AWS EC2 instance. The table below shows which services are used in the project backend.  
-Service Name | Required | Usage
-|   :----:   |  :----:  | :----
-EC2          |   | Compute instance for API server.  
-S3           | O | File storage for user-db files. User-uploaded files will be saved on API server.  
-RDS          |   | API server natively supports PostgreSQL or SQLite3, but maybe it can handle MySQL/MariaDB, too (not tested tho). You don't need this if you use SQLite3.  
-ElastiCache  | O | Redis, not to mention long.  
-SQS          | O | Used for message queues in the task scheduler. One lambda instance is triggered per task job.  
-Lambda       | O | Used as task scheduler's worker instances.  
-SES          |   | Used to send mail on account-related matters such as account registration, password change, etc. This function can be off completely on `env_collection`.  
+## API Server
+Since this codebase is based on [FROST project](https://github.com/MU-software/frost), Please read the FROST's README first to get base information (like environment variables). Additionally, this project uses Redis as Celery's backend & broker and also uses it as a lock to solve a critical section problem that multiple workers can access and try to modify the same file.  
+This repository requires Python 3.10 or above.
 
 ### Firebase dependency
 This project uses Firebase Cloud Messaging(FCM) on chat message notification push implementation.  
 
-## API Server
-Since codebase is based on [FROST project](https://github.com/MU-software/frost) (as I said earlier), lots of things goes similarly to that project. Please read the FROST's README first.  
+#### Environment variables
+Key                     | Explain
+|        :----:         | :----
+`FIREBASE_CERTIFICATE`  | Firebase Cloud Messaging(FCM) is used on chat message notification push implementation.  
 
-### environment
-You can manage environment settings using env_collection. This section documents only the variables used in this project only. For other variables, please refer to the explanation of FROST. 
-Key                     | Required | Explain
-| :----:                |  :----:  | :----
-`AWS_REGION`            | O | Boto3 needs this.  
-`AWS_ACCESS_KEY_ID`     | O | Boto3 needs this.  
-`AWS_SECRET_ACCESS_KEY` | O | Boto3 needs this.  
-`AWS_S3_BUCKET_NAME`    | O | We save user-db files and user-uploaded files on AWS S3, so we need to specify the name of a target S3 bucket.  
-`AWS_TASK_SQS_URL`      | O | We need to send long-term task jobs to Task Scheduler, so we are using SQS as message queue. Please be aware that unlike the variables above, you need to specify a URL other than a name.  
-`FIREBASE_CERTIFICATE`  | O | Firebase Cloud Messaging(FCM) is used on chat message notification push implementation.  
+### Previous AWS dependencies
+Originally, this project had dependencies on some AWS services (like S3, SQS, Lambda) to implement a task scheduler. But, after migrating and rewriting the task scheduler to Celery, the task scheduler was merged on this repository, and also AWS dependencies were removed. (That repository remains only for historical records use in graduation projects and no longer works.) The table below explains what services on AWS were used on this project.  
+Service Name | Usage
+|   :----:   | :----
+S3           | File storage for user-db files. User-uploaded files will be stored on API server.  
+SQS          | Used for message queues in the task scheduler. One lambda instance is triggered per task job.  
+Lambda       | Used as task scheduler's worker instances.  
 
-### DB / Redis
-As the original FROST needs DB (for storing user informational resources) and Redis(for storing invoked user tokens, etc.), this project also needs those. Please designate it in `env_collection`.
+#### Environment variables
+These environment variables were used when we had a dependency on AWS services. You must not set these variables as we don't support AWS anymore.  
+Key                     | Explain
+| :----:                | :----
+`AWS_REGION`            | Boto3 needed this.  
+`AWS_ACCESS_KEY_ID`     | Boto3 needed this.  
+`AWS_SECRET_ACCESS_KEY` | Boto3 needed this.  
+`AWS_S3_BUCKET_NAME`    | We stored user-db files and user-uploaded files on AWS S3, so we needed to specify the name of a target S3 bucket.  
+`AWS_TASK_SQS_URL`      | We needed to send long-term task jobs to Task Scheduler, so we were using SQS as message queue. Please be aware that unlike the variables above, you needed to specify a URL other than a name.  
 
 ### Bugs
 This project has a lot of bugs as it was carried out in a hurry. If you find a bug, please create the issue.

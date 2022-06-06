@@ -3,6 +3,8 @@
 > This project is based on [MU-Software/frost](https://github.com/MU-software/frost).  
 > Check this out if you are interested in building a RESTful API and generating an OpenAPI 3.0 documentation automatically with less code!  
 
+> Please go to [MU-Software/bca_android](https://github.com/MU-Software/bca_android) to see B.Ca client app for Android.
+
 > [여기](README-ko_kr.md)에 한국어 버전의 README가 있어요!  
 > [Click here](README-ko_kr.md) to read a README written in Korean!  
 

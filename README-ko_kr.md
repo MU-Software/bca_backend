@@ -3,6 +3,8 @@
 > 이 프로젝트는 [MU-Software/frost](https://github.com/MU-software/frost)에 기반하고 있습니다. 관심이 있으시다면 한번 확인해보세요!   
 > 더 적은 코드로 RESTful한 API를 작성하고, 문서 자동화를 경험하실 수 있어요!  
 
+> B.Ca 안드로이드 클라이언트의 저장소는 [MU-software/bca_android](https://github.com/MU-software/bca_android)를 확인해주세요.
+
 > [여기](README.md)에 영어 버전의 README가 준비되어 있습니다!  
 > [Click here](README.md) to read a README written in English.  
 

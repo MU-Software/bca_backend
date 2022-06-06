@@ -1,5 +1,11 @@
 ![B.Ca title image](./.github/readme/title.png)
 # B.Ca API 백엔드 저장소
+> 이 프로젝트는 [MU-Software/frost](https://github.com/MU-software/frost)에 기반하고 있습니다. 관심이 있으시다면 한번 확인해보세요!   
+> 더 적은 코드로 RESTful한 API를 작성하고, 문서 자동화를 경험하실 수 있어요!  
+
+> [여기](README.md)에 영어 버전의 README가 준비되어 있습니다!  
+> [Click here](README.md) to read a README written in English.  
+
 B.Ca는 제 졸업작품으로 진행된, 명함을 중점으로 한 커뮤니케이션 메신저 프로젝트입니다.  
 본 저장소는 [FROST 프로젝트](https://github.com/MU-software/frost)를 기반으로 작성된 HTTP API 서버 코드와 작업 스케줄러([Celery](https://docs.celeryq.dev/) Worker)를 포함하고 있습니다.  
 

@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 
 <head>
-  <meta charset="UTF-8" content />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1" />
   <title>FROST Upload testbed</title>
   <link rel="stylesheet" href="https://unpkg.com/mvp.css">
   <style>
@@ -12,6 +13,7 @@
     }
 
     html {
+      -webkit-user-select: none;
       user-select: none;
       font-size: 75%;
     }
@@ -36,16 +38,22 @@
     #csrf_token_str {
       word-wrap: break-word;
       width: 30vw;
+      -webkit-user-select: text;
       user-select: text;
     }
 
     section aside {
       /* max-width: calc(var(--width-card-wide) - 48px); */
       min-width: 27vw;
+      height: -moz-fit-content;
       height: fit-content;
       text-align: center;
       background-color: #f7f7f7;
       border: 1px solid #7af;
+    }
+
+    .inline-label {
+      display: inline;
     }
 
     .container_container {
@@ -128,6 +136,7 @@
       font-size: 8pt;
       font-weight: normal;
     }
+
     #upload_input_info_text code {
       font-family: inherit;
       font-size: 8pt;
@@ -141,20 +150,20 @@
 
     }
 
-    #download_file_type {
+    #download_file_type_container {
       height: 2rem;
       display: flex;
       justify-content: space-around;
       align-items: center;
     }
 
-    #download_file_type input {
+    .download_file_type input {
       margin: 0.4rem;
       margin-top: 0;
       margin-bottom: 0;
     }
 
-    #download_file_type label {
+    .download_file_type label {
       top: 0;
     }
 
@@ -388,7 +397,7 @@
       <aside class="item">
         <h3>이미지 업로드</h3>
 
-        <label for="upload_is_for_profile" style="display: inline">프로필 업로드 여부</label>
+        <label for="upload_is_for_profile" class="inline-label">프로필 업로드 여부</label>
         <input id="upload_is_for_profile" name="private" type="checkbox" />
 
         <form id="upload_form" action="/api/dev/upload" method="POST">
@@ -407,7 +416,8 @@
           <input id="upload_input_alt_data" name="alt_data" type="text" />
           <br />
 
-          <div id="upload_input_info_text"><code>Private</code>과 <code>Alternative</code>는 <code>프로필 업로드 여부</code>가 체크 해제된 상태에서만 활성화됩니다.</div>
+          <div id="upload_input_info_text"><code>Private</code>과 <code>Alternative</code>는 <code>프로필 업로드 여부</code>가 체크
+            해제된 상태에서만 활성화됩니다.</div>
 
           <input id="upload_submit" type="submit" onclick="return false;" />
         </form>
@@ -425,13 +435,13 @@
       <aside class="item">
         <h3>이미지 다운로드</h3>
         <form id="download_form" action="/api/dev/account/signup" method="POST">
-          <label for="download_file_type">파일 로드 형식</label>
-          <div id="download_file_container">
-            <div id="download_file_type">
+          <label for="download_file_type_container">파일 로드 형식</label>
+          <div id="download_file_type_container">
+            <div class="download_file_type">
               <input type="radio" name="request_type" id="download_type_json" value="application/json" checked />
               <label id="download_type_json_label" for="download_type_json">application/json</label>
             </div>
-            <div id="download_file_type">
+            <div class="download_file_type">
               <input type="radio" name="request_type" id="download_type_binary" value="image/*" />
               <label id="download_type_binary_label" for="download_type_binary">image/*</label>
             </div>

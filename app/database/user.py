@@ -17,13 +17,13 @@ RedisKeyType = db_module.RedisKeyType
 class User(db_module.DefaultModelMixin, db.Model):
     __tablename__ = 'TB_USER'
     uuid = db.Column(db_module.PrimaryKeyType, db.Sequence('SQ_User_UUID'), primary_key=True)
-    id = db.Column(db.String, unique=True, nullable=False)
-    nickname = db.Column(db.String, unique=True, nullable=False)
+    id = db.Column(db.String(collation='NOCASE'), unique=True, nullable=False)
+    nickname = db.Column(db.String(collation='NOCASE'), unique=True, nullable=False)
     password = db.Column(db.String, unique=False, nullable=False)
     pw_changed_at = db.Column(db.DateTime, default=db.func.now(), nullable=False)
 
     # No, We won't support multiple account
-    email = db.Column(db.String(254), nullable=False, unique=True)
+    email = db.Column(db.String(254, collation='NOCASE'), nullable=False, unique=True)
     email_verified = db.Column(db.Boolean, nullable=False, default=False)
     email_secret = db.Column(db.String, nullable=True)
 
@@ -82,6 +82,9 @@ class User(db_module.DefaultModelMixin, db.Model):
             if not self.check_password(orig_pw):
                 return False, 'WRONG_PASSWORD'
 
+        if new_pw.lower() in (self.id.lower(), self.email.lower(), self.nickname.lower()):
+            return False, 'PW_REUSED_ON_ID_EMAIL_NICK'
+
         try:
             self.password = argon2.hash(new_pw)
         except Exception:
@@ -94,18 +97,24 @@ class User(db_module.DefaultModelMixin, db.Model):
             db.session.rollback()
             return False, 'DB_ERROR'
 
-    def change_id(self, pw: str, new_id: str) -> tuple[bool, str]:
-        new_id = utils.normalize(new_id)
+    def change_id(self,
+                  pw: str,
+                  new_id: str,
+                  force_change: bool = False,
+                  db_commit: bool = True) -> tuple[bool, str]:
+        new_id = utils.normalize(new_id.strip())
 
-        if self.check_password(pw):
+        if not force_change and not self.check_password(pw.strip()):
             return False, 'WRONG_PASSWORD'
 
-        if not utils.char_urlsafe(new_id):
+        if not utils.is_urlsafe(new_id):
             return False, 'FORBIDDEN_CHAR'
 
         self.id = new_id
         try:
-            db.session.commit()
+            if db_commit:
+                db.session.commit()
+
             return True, ''
         except Exception:
             db.session.rollback()
@@ -113,6 +122,9 @@ class User(db_module.DefaultModelMixin, db.Model):
 
     @classmethod
     def try_login(cls, user_ident: str, pw: str) -> tuple[typing.Union[bool, 'User'], str]:
+        SIGNIN_POSSIBLE_AFTER_MAIL_VERIFICATION = flask.current_app.config.get(
+            'SIGNIN_POSSIBLE_AFTER_MAIL_VERIFICATION')
+
         user_ident = utils.normalize(user_ident.strip())
         pw = utils.normalize(pw.strip())
         # We won't support UUID login,
@@ -139,6 +151,8 @@ class User(db_module.DefaultModelMixin, db.Model):
             reason = f'ACCOUNT_DEACTIVATED::{self.why_deactivated}'
         elif not self.check_password(pw):
             reason = 'WRONG_PASSWORD'
+        elif SIGNIN_POSSIBLE_AFTER_MAIL_VERIFICATION and not self.email_verified:
+            reason = 'EMAIL_NOT_VERIFIED'
 
         if reason:
             if reason == 'WRONG_PASSWORD':
@@ -174,6 +188,7 @@ class User(db_module.DefaultModelMixin, db.Model):
             'id': self.id,
             'nickname': self.nickname,
             'email': self.email,
+            'email_verified': self.email_verified,
             'description': self.description,
             'profile_image': self.profile_image,
 

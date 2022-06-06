@@ -168,11 +168,16 @@ class Response:
                         header: tuple[tuple[str]] = (),
                         data: dict = {},
                         message: typing.Optional[str] = None,
-                        template_path: str = '') -> ResponseType:
+                        template_path: str = '',
+                        content_type: str = '') -> ResponseType:
 
         resp_code: int = code if code is not None else self.code
 
-        resp_header = header or self.header
+        resp_header = [z for z in (header or self.header) if z[0] and z[1]]
+        if resp_header:
+            resp_header_name = [z[0] for z in resp_header]
+            resp_header.append(('Access-Control-Expose-Headers', ', '.join(resp_header_name)))
+
         result_header = wz_dt.MultiDict((
             *resp_header,
             ('Server', flask.current_app.config.get('BACKEND_NAME', 'Backend Core')),
@@ -182,8 +187,9 @@ class Response:
         resp_data.update(data)
 
         resp_template_path = template_path or self.template_path
+        resp_content_type = content_type or self.content_type
 
-        if self.content_type == 'application/json':
+        if resp_content_type == 'application/json':
             # TODO: Parse YAML file and get response message using public_sub_code
             response_body = {
                 'success': self.success,
@@ -194,12 +200,12 @@ class Response:
             }
 
             return (flask.jsonify(response_body), resp_code, result_header)
-        elif self.content_type == 'text/html':
+        elif resp_content_type == 'text/html':
             if not resp_template_path:
                 raise Exception('template_path must be set when content_type is \'text/html\'')
             return (flask.render_template(resp_template_path, **resp_data), resp_code, result_header)
         else:
-            raise NotImplementedError(f'Response type {self.content_type} is not supported.')
+            raise NotImplementedError(f'Response type {resp_content_type} is not supported.')
 
 
 class ResponseCaseCollector(AutoRegisterClass):
@@ -238,15 +244,43 @@ from app.api.response_case import CommonResponseCase  # noqa
 
 class MethodViewMixin(AutoRegisterClass):
     _base_class = 'MethodViewMixin'
+    __access_control_expose_headers_cache__: set[str] | None = None
 
-    def options(self):
-        all_mtd = inspect.getmembers(self, predicate=inspect.ismethod)
-        http_mtd = [z[0] for z in all_mtd if z[0] in http_all_method]  # z[1] is method itself
+    def options(self, *args, **kwargs):
+        result_header = []
 
-        return CommonResponseCase.http_ok.create_response(
-            header=(
-                ('Allow', ', '.join(http_mtd)),
-            ))
+        all_mtd_name = inspect.getmembers(self, predicate=inspect.ismethod)
+        http_mtd_name = [z[0] for z in all_mtd_name if z[0] in http_all_method]  # z[1] is method itself
+        result_header.append(('Allow', ', '.join(http_mtd_name)))
+
+        # Try to parse docstring and calculate Access-Control-Expose-Headers.
+        # If we successfully calculated this, then we'll cache it for the further use.
+        if self.__access_control_expose_headers_cache__ is None:
+            self.__access_control_expose_headers_cache__ = set()
+
+            http_mtd_method = [getattr(self, z) for z in http_mtd_name]
+            http_mtd_docstring: list[str] = [getattr(z, '__doc__') for z in http_mtd_method
+                                             if hasattr(z, '__doc__')]
+            http_mtd_resp_cases_name = sum([yaml.safe_load(z).get('responses', None) for z in http_mtd_docstring
+                                            if z], [])
+
+            # FIXME: Cache this so that we don't need to calculate on every first OPTION request.
+            response_cases: dict[str, Response] = dict()
+            for response_case_collection in ResponseCaseCollector._subclasses:
+                response_cases.update({k: v for k, v in response_case_collection.__dict__.items()
+                                      if not k.startswith('_')})
+
+            # Now we can collect possible header responses on possible responses.
+            http_mtd_header_case_tuples = [response_cases[z].header for z in http_mtd_resp_cases_name]
+            for header_cases in http_mtd_header_case_tuples:
+                for header_case in header_cases:
+                    self.__access_control_expose_headers_cache__.add(header_case[0])
+
+        if self.__access_control_expose_headers_cache__:
+            result_header.append(
+                ('Access-Control-Expose-Headers', ', '.join(self.__access_control_expose_headers_cache__)))
+
+        return CommonResponseCase.http_ok.create_response(header=result_header)
 
 
 class AuthType(enum.Enum):
